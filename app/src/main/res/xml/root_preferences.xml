@@ -1,0 +1,29 @@
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <PreferenceCategory android:title="User Account">
+        <EditTextPreference
+            android:defaultValue="Default value"
+            android:icon="@drawable/ic_baseline_account_circle_24"
+            android:key="pref_username"
+            android:selectAllOnFocus="true"
+            android:singleLine="true"
+            android:summary="Change Your Account Username"
+            android:title="Username" />
+        <EditTextPreference
+            android:defaultValue="Default value"
+            android:icon="@drawable/ic_baseline_security_24"
+            android:key="pref_password"
+            android:selectAllOnFocus="true"
+            android:singleLine="true"
+            android:summary="Change Password"
+            android:title="Password" />
+        <EditTextPreference
+            android:defaultValue="Default value"
+            android:icon="@drawable/ic_baseline_security_24"
+            android:key="pref_password_confirm"
+            android:selectAllOnFocus="true"
+            android:singleLine="true"
+            android:summary="Confirm Changed Password"
+            android:title="Confirm Password" />
+    </PreferenceCategory>
+
+</PreferenceScreen>

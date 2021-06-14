@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/action_search"
+        android:icon="@drawable/ic_baseline_search_24"
+        android:title="@string/action_search"
+        app:showAsAction="always" />
+    <item
+        android:id="@+id/action_settings"
+        android:icon="@drawable/ic_baseline_settings_applications_24"
+        android:title="@string/action_settings"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_simulate_route"
+        android:checkable="true"
+        android:title="Simulate Route"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_about"
+        android:title="@string/action_about"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_logout"
+        android:title="Log out"
+        android:visible="false"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_login"
+        android:icon="@drawable/ic_baseline_login_24"
+        android:title="Log in"
+        app:showAsAction="ifRoom" />
+    <item
+        android:id="@+id/action_account"
+        android:icon="@drawable/ic_baseline_account_circle_24"
+        android:visible="false"
+        app:showAsAction="always" />
+</menu>
