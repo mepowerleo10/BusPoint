@@ -21,6 +21,10 @@
         android:title="@string/action_about"
         app:showAsAction="never" />
     <item
+        android:id="@+id/action_ip_addr"
+        android:title="Server IP Address"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/action_logout"
         android:title="Log out"
         android:visible="false"

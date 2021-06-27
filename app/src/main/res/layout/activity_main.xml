@@ -28,51 +28,24 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
 
-        <androidx.constraintlayout.widget.ConstraintLayout
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/button_get_my_location"
+            style="@style/Widget.App.Button.Circular.IconOnly"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="bottom|right">
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/button_get_my_location"
-                style="@style/Widget.App.Button.Circular.IconOnly"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_margin="@dimen/standard_margin"
-                android:layout_marginEnd="56dp"
-                app:icon="@drawable/mapbox_plugins_ic_user_location"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toStartOf="@+id/button_zoom_out" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/button_zoom_in"
-                style="@style/Widget.App.Button.Circular.IconOnly.Transparent"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_margin="@dimen/standard_margin"
-                android:layout_marginBottom="89dp"
-                app:icon="@drawable/ic_baseline_add_24"
-                app:layout_constraintBottom_toTopOf="@+id/button_zoom_out"
-                app:layout_constraintEnd_toEndOf="parent" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/button_zoom_out"
-                style="@style/Widget.App.Button.Circular.IconOnly.Transparent"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_margin="@dimen/standard_margin"
-                app:icon="@drawable/ic_baseline_remove_24"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toEndOf="parent" />
-
-        </androidx.constraintlayout.widget.ConstraintLayout>
+            android:layout_gravity="bottom|right"
+            android:layout_margin="@dimen/standard_margin"
+            android:layout_marginEnd="56dp"
+            app:icon="@drawable/mapbox_plugins_ic_user_location"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@+id/button_zoom_out" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/button_clear_waypoints"
             style="@style/Widget.App.Button.Circular.IconOnly"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="top|left"
+            android:layout_gravity="bottom|left"
             android:layout_margin="@dimen/standard_margin"
             android:visibility="gone"
             app:icon="@drawable/ic_clear" />
@@ -91,9 +64,10 @@
             app:cornerRadius="@dimen/standard_margin" />
 
         <androidx.coordinatorlayout.widget.CoordinatorLayout
+            android:id="@+id/journey_sheet"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:visibility="gone">
+            android:visibility="visible">
 
             <include layout="@layout/bottom_sheet_journey_details" />
         </androidx.coordinatorlayout.widget.CoordinatorLayout>
@@ -127,6 +101,19 @@
                     android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/button_open_journey_sheet"
+            style="@style/Widget.App.Button.Circular.IconOnly"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|left"
+            android:layout_margin="@dimen/standard_margin"
+            android:layout_marginEnd="56dp"
+            android:visibility="gone"
+            app:icon="@drawable/ic_arrow_up"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@+id/button_zoom_out" />
 
     </FrameLayout>
 </LinearLayout>
