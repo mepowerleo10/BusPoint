@@ -562,10 +562,18 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         String url = Uri.parse("http://" + serverIpAddress + ":8000/api/get-route")
                 .buildUpon()
-                .appendQueryParameter("start_lat", String.valueOf(sourceNearestStopMarker.getPosition().getLatitude()))
-                .appendQueryParameter("start_lon", String.valueOf(sourceNearestStopMarker.getPosition().getLongitude()))
-                .appendQueryParameter("final_lat", String.valueOf(destinationNearestStopMarker.getPosition().getLatitude()))
-                .appendQueryParameter("final_lon", String.valueOf(destinationNearestStopMarker.getPosition().getLongitude()))
+                .appendQueryParameter(
+                        "start_lat",
+                        String.valueOf(sourceNearestStopMarker.getPosition().getLatitude()))
+                .appendQueryParameter(
+                        "start_lon",
+                        String.valueOf(sourceNearestStopMarker.getPosition().getLongitude()))
+                .appendQueryParameter(
+                        "final_lat",
+                        String.valueOf(destinationNearestStopMarker.getPosition().getLatitude()))
+                .appendQueryParameter(
+                        "final_lon",
+                        String.valueOf(destinationNearestStopMarker.getPosition().getLongitude()))
                 .build().toString();
 
         JsonObjectRequest request = new JsonObjectRequest(
@@ -595,7 +603,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     private void showBottomSheet() {
-//        journeySheet.setVisibility(View.VISIBLE);
         journeySheetBehaviour = BottomSheetBehavior.from(journeyCardView);
         if (journeySheetBehaviour.getState() == BottomSheetBehavior.STATE_HIDDEN) {
             journeySheetBehaviour.setState(BottomSheetBehavior.STATE_EXPANDED);
@@ -650,6 +657,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     .setText(toRouteDescription);
             ((TextView) journeyCardView.findViewById(R.id.to_stop_description))
                     .setText(journey.getFinalStop().getName());
+        } else {
+            ((TextView) journeyCardView.findViewById(R.id.to_route_description))
+                    .setText(getResources().getString(R.string.board_off_here));
+            ((TextView) journeyCardView.findViewById(R.id.to_stop_description))
+                    .setText(journey.getFinalStop().getName());
         }
 
         ((TextView) journeyCardView.findViewById(R.id.journey_total_price))
@@ -674,6 +686,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     .setOnClickListener(v -> {
                         animateCamera(new LatLng(midStop.getLat(), midStop.getLon()));
                     });
+        } else {
+            journeyCardView.findViewById(R.id.mid_route_container)
+                    .setVisibility(View.GONE);
+            journeyCardView.findViewById(R.id.midroute_arrow)
+                    .setVisibility(View.GONE);
         }
 
         journeyCardView.findViewById(R.id.from_route_container)
