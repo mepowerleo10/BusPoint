@@ -534,9 +534,18 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     private void hideBottomSheet() {
         journeySheetBehaviour = BottomSheetBehavior.from(journeyCardView);
-        if (journeySheetBehaviour.getState() == BottomSheetBehavior.STATE_EXPANDED) {
-            journeySheetBehaviour.setState(BottomSheetBehavior.STATE_HIDDEN);
-        }
+        journeySheetBehaviour.addBottomSheetCallback(new BottomSheetBehavior.BottomSheetCallback() {
+            @Override
+            public void onStateChanged(@NonNull @NotNull View bottomSheet, int newState) {
+
+            }
+
+            @Override
+            public void onSlide(@NonNull @NotNull View bottomSheet, float slideOffset) {
+                showJourneySheetBtn.setRotation(slideOffset * 180);
+            }
+        });
+        journeySheetBehaviour.setState(BottomSheetBehavior.STATE_HIDDEN);
     }
 
     private void startNavigationActivity() {
@@ -590,6 +599,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         journeySheetBehaviour = BottomSheetBehavior.from(journeyCardView);
         if (journeySheetBehaviour.getState() == BottomSheetBehavior.STATE_HIDDEN) {
             journeySheetBehaviour.setState(BottomSheetBehavior.STATE_EXPANDED);
+        } else {
+            journeySheetBehaviour.setState(BottomSheetBehavior.STATE_HIDDEN);
         }
     }
 
