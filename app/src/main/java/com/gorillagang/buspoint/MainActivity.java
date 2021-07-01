@@ -5,12 +5,17 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.graphics.PointF;
 import android.graphics.drawable.Drawable;
 import android.location.Location;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.InputType;
+import android.text.Spannable;
+import android.text.SpannableString;
+import android.text.Spanned;
+import android.text.style.BackgroundColorSpan;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -51,6 +56,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.gorillagang.buspoint.data.Journey;
 import com.gorillagang.buspoint.data.OverpassApiResponse;
+import com.gorillagang.buspoint.data.Route;
 import com.gorillagang.buspoint.data.Stop;
 import com.gorillagang.buspoint.ui.account.LoginActivity;
 import com.mapbox.android.core.location.LocationEngine;
@@ -135,10 +141,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private static final String DESTINATION_MARKER_LAYER = "DESTINATION_MARKER_LAYER";
     private static final String DESTINATION_INFO_LAYER = "DESTINATION_INFO_LAYER";
     private static final String PROPERTY_SELECTED = "SELECTED";
-    private static final String DESTINATION_STOP_MARKER_SOURCE = "DESTINATION_STOP_MARKER_SOURCE";
-    private static final String DESTINATION_STOP_MARKER_LAYER = "DESTINATION_STOP_MARKER_LAYER";
-    private static final String SOURCE_STOP_MARKER_LAYER = "SOURCE_STOP_MARKER_LAYER";
-    private static final String SOURCE_STOP_MARKER_SOURCE = "SOURCE_STOP_MARKER_SOURCE";
     private static final String ROUTE_LAYER_ID = "ROUTE_LAYER_ID";
     private static final String ROUTE_LINE_SOURCE_ID = "ROUTE_LINE_SOURCE_ID";
     private static final Float ROUTE_LINE_WIDTH = 6f;
@@ -181,11 +183,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     private CardView progressInfo;
     private TextView progressInfoText;
-    private ProgressBar progressInfoBar;
     private RequestQueue requestQueue;
     private FirebaseAuth mAuth;
     private FirebaseUser user;
-    private CoordinatorLayout journeySheet;
     private String serverIpAddress = "192.168.0.101";
 
     @Override
@@ -402,6 +402,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         if (requestCode == AUTOCOMPLETE_REQUEST_CODE) {
             if (resultCode == RESULT_OK) {
+                hideJorneyInfo();
                 if (destinationNearestStopMarker != null) {
                     mapboxMap.removeMarker(destinationNearestStopMarker);
                     destinationNearestStopMarker = null;
@@ -455,16 +456,15 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         mapView = findViewById(R.id.mapView);
         progressInfo = findViewById(R.id.progress_info);
         progressInfoText = findViewById(R.id.progress_info_text);
-        progressInfoBar = findViewById(R.id.progress_info_bar);
+        ProgressBar progressInfoBar = findViewById(R.id.progress_info_bar);
         clearWaypointsBtn = findViewById(R.id.button_clear_waypoints);
         waypoints = new ArrayList<>();
 
         mapView.onCreate(savedInstanceState);
         mapView.getMapAsync(this);
 
-        journeySheet = findViewById(R.id.journey_sheet);
+        CoordinatorLayout journeySheet = findViewById(R.id.journey_sheet);
         journeyCardView = findViewById(R.id.card_journey_details);
-        hideBottomSheet();
 
         startJourneyBtn = findViewById(R.id.button_start_journey);
         startJourneyBtn.setOnClickListener(v -> {
@@ -488,8 +488,19 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         });
 
         getMyLocationBtn = findViewById(R.id.button_get_my_location);
-        getMyLocationBtn.setOnClickListener(v -> animateCamera(new LatLng(getLastKnownLocation().getLatitude(),
-                getLastKnownLocation().getLongitude())));
+        getMyLocationBtn.setOnClickListener(v -> {
+            if (locationComponent.isLocationComponentActivated() && getLastKnownLocation() != null) {
+                animateCamera(new LatLng(
+                        getLastKnownLocation().getLatitude(),
+                        getLastKnownLocation().getLongitude()));
+            } else {
+                Toast.makeText(
+                        this,
+                        "Please enable the location services",
+                        Toast.LENGTH_LONG).show();
+                enableLocationComponent(mapboxMap.getStyle());
+            }
+        });
 
         clearWaypointsBtn.setOnClickListener(v -> {
             if (waypoints != null && waypoints.size() > 0) {
@@ -517,6 +528,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         mAuth = FirebaseAuth.getInstance();
         user = mAuth.getCurrentUser();
+
+        hideBottomSheet();
     }
 
     private void hideBottomSheet() {
@@ -545,7 +558,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 .appendQueryParameter("final_lat", String.valueOf(destinationNearestStopMarker.getPosition().getLatitude()))
                 .appendQueryParameter("final_lon", String.valueOf(destinationNearestStopMarker.getPosition().getLongitude()))
                 .build().toString();
-        hideJorneyInfo();
 
         JsonObjectRequest request = new JsonObjectRequest(
                 Request.Method.GET,
@@ -582,26 +594,53 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     private void hideJorneyInfo() {
-        ((View) journeyCardView.findViewById(R.id.mid_route_container))
+        journeyCardView.findViewById(R.id.mid_route_container)
                 .setVisibility(View.GONE);
-        ((View) journeyCardView.findViewById(R.id.midroute_arrow))
+        journeyCardView.findViewById(R.id.midroute_arrow)
                 .setVisibility(View.GONE);
         ((TextView) journeyCardView.findViewById(R.id.mid_route_description))
                 .setText(R.string.board_off_here);
         hideBottomSheet();
-        showJourneySheetBtn.setVisibility(View.VISIBLE);
+        showJourneySheetBtn.setVisibility(View.GONE);
     }
 
     private void showJourneyInfo() {
         Journey journey = journeyList.get(journeyList.size() - 1);
+        Route fromRoute = journey.getRoutes().get(0);
+
+        Spannable fromRouteDescription = new SpannableString(" " + fromRoute.getName() + " ");
+        int strLen = fromRouteDescription.length();
+        fromRouteDescription.setSpan(
+                new BackgroundColorSpan(Color.parseColor(fromRoute.getFirstStripe())),
+                0, (int) Math.floor(strLen / 2), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        );
+        fromRouteDescription.setSpan(
+                new BackgroundColorSpan(Color.parseColor(fromRoute.getLastStripe())),
+                (int) Math.floor(strLen / 2), strLen, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        );
         ((TextView) journeyCardView.findViewById(R.id.from_route_description))
-                .setText(journey.getRoutes().get(0).getName());
+                .setText(fromRouteDescription);
         ((TextView) journeyCardView.findViewById(R.id.from_stop_description))
                 .setText(journey.getStartStop().getName());
-        ((TextView) journeyCardView.findViewById(R.id.to_route_description))
-                .setText(journey.getRoutes().get(1).getName());
-        ((TextView) journeyCardView.findViewById(R.id.to_stop_description))
-                .setText(journey.getFinalStop().getName());
+
+        if (journey.getRoutes().size() > 1) {
+            Route toRoute = journey.getRoutes().get(1);
+            Spannable toRouteDescription = new SpannableString(" " + toRoute.getName() + " ");
+            strLen = toRouteDescription.length();
+            toRouteDescription.setSpan(
+                    new BackgroundColorSpan(Color.parseColor(toRoute.getFirstStripe())),
+                    0, (int) Math.floor(strLen / 2), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            );
+            toRouteDescription.setSpan(
+                    new BackgroundColorSpan(Color.parseColor(toRoute.getLastStripe())),
+                    (int) Math.floor(strLen / 2), strLen, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            );
+            ((TextView) journeyCardView.findViewById(R.id.to_route_description))
+                    .setText(toRouteDescription);
+            ((TextView) journeyCardView.findViewById(R.id.to_stop_description))
+                    .setText(journey.getFinalStop().getName());
+        }
+
         ((TextView) journeyCardView.findViewById(R.id.journey_total_price))
                 .setText(journey.getCost() + " TShs.");
 
@@ -612,26 +651,26 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     .setPosition(new LatLng(midStop.getLat(), midStop.getLon()));
             midStopMarker = mapboxMap.addMarker(midStopMarkerOptions);
 
-            ((View) journeyCardView.findViewById(R.id.mid_route_container))
+            journeyCardView.findViewById(R.id.mid_route_container)
                     .setVisibility(View.VISIBLE);
-            ((View) journeyCardView.findViewById(R.id.midroute_arrow))
+            journeyCardView.findViewById(R.id.midroute_arrow)
                     .setVisibility(View.VISIBLE);
             ((TextView) journeyCardView.findViewById(R.id.mid_route_description))
                     .setText(R.string.board_off_here);
             ((TextView) journeyCardView.findViewById(R.id.mid_stop_description))
                     .setText(midStop.getName());
-            ((View) journeyCardView.findViewById(R.id.mid_route_container))
+            journeyCardView.findViewById(R.id.mid_route_container)
                     .setOnClickListener(v -> {
                         animateCamera(new LatLng(midStop.getLat(), midStop.getLon()));
                     });
         }
 
-        ((View) journeyCardView.findViewById(R.id.from_route_container))
+        journeyCardView.findViewById(R.id.from_route_container)
                 .setOnClickListener(v -> {
                     animateCamera(new LatLng(journey.getStartStop().getLat(),
                             journey.getStartStop().getLon()));
                 });
-        ((View) journeyCardView.findViewById(R.id.to_route_container))
+        journeyCardView.findViewById(R.id.to_route_container)
                 .setOnClickListener(v -> {
                     animateCamera(new LatLng(journey.getFinalStop().getLat(),
                             journey.getFinalStop().getLon()));
