@@ -1,15 +1,21 @@
 package com.gorillagang.buspoint;
 
 import android.annotation.SuppressLint;
+import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.PointF;
+import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.VectorDrawable;
 import android.location.Location;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.text.InputType;
 import android.text.Spannable;
@@ -28,11 +34,13 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.cardview.widget.CardView;
 import androidx.coordinatorlayout.widget.CoordinatorLayout;
+import androidx.core.content.ContextCompat;
 import androidx.core.content.res.ResourcesCompat;
 
 import com.android.volley.DefaultRetryPolicy;
@@ -74,6 +82,8 @@ import com.mapbox.api.matrix.v1.models.MatrixResponse;
 import com.mapbox.geojson.Feature;
 import com.mapbox.geojson.Point;
 import com.mapbox.mapboxsdk.Mapbox;
+import com.mapbox.mapboxsdk.annotations.Icon;
+import com.mapbox.mapboxsdk.annotations.IconFactory;
 import com.mapbox.mapboxsdk.annotations.Marker;
 import com.mapbox.mapboxsdk.annotations.MarkerOptions;
 import com.mapbox.mapboxsdk.camera.CameraPosition;
@@ -622,6 +632,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         showJourneySheetBtn.setVisibility(View.GONE);
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
     private void showJourneyInfo() {
         Journey journey = journeyList.get(journeyList.size() - 1);
         Route fromRoute = journey.getRoutes().get(0);
@@ -665,11 +676,13 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
 
         ((TextView) journeyCardView.findViewById(R.id.journey_total_price))
-                .setText(journey.getCost() + " TShs.");
+                .setText("The Trip Price is " + journey.getCost() + " TShs.");
 
         if (journey.getMidStop() != null) {
             Stop midStop = journey.getMidStop();
+            Bitmap b = getBitmap(getApplicationContext(), R.drawable.ic_mapbox_marker_icon_yellow);
             MarkerOptions midStopMarkerOptions = new MarkerOptions()
+                    .setIcon(IconFactory.getInstance(getApplicationContext()).fromBitmap(b))
                     .setTitle(midStop.getName())
                     .setPosition(new LatLng(midStop.getLat(), midStop.getLon()));
             midStopMarker = mapboxMap.addMarker(midStopMarkerOptions);
@@ -887,6 +900,30 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         progressInfo.setVisibility(View.VISIBLE);
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
+    private static Bitmap getBitmap(Context context, int drawableId) {
+        Log.e(TAG, "getBitmap: 2");
+        Drawable drawable = ContextCompat.getDrawable(context, drawableId);
+        if (drawable instanceof BitmapDrawable) {
+            return BitmapFactory.decodeResource(context.getResources(), drawableId);
+        } else if (drawable instanceof VectorDrawable) {
+            return getBitmap((VectorDrawable) drawable);
+        } else {
+            throw new IllegalArgumentException("unsupported drawable type");
+        }
+    }
+
+    @TargetApi(Build.VERSION_CODES.LOLLIPOP)
+    private static Bitmap getBitmap(VectorDrawable vectorDrawable) {
+        Bitmap bitmap = Bitmap.createBitmap(vectorDrawable.getIntrinsicWidth(),
+                vectorDrawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        vectorDrawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+        vectorDrawable.draw(canvas);
+        Log.e(TAG, "getBitmap: 1");
+        return bitmap;
+    }
+
     private void findShortestDistance(List<OverpassApiResponse.QueryElement> results,
                                       LatLng point,
                                       boolean isSource) {
@@ -910,6 +947,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     .addAnnotations(DirectionsCriteria.ANNOTATION_DISTANCE)
                     .build();
             matrixApiClient.enqueueCall(new Callback<MatrixResponse>() {
+                @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
                 @Override
                 public void onResponse(Call<MatrixResponse> call,
                                        Response<MatrixResponse> response) {
@@ -941,15 +979,19 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                             waypoints.add(p);
                             Log.i(TAG, "Point: " + p.toString());
                             OverpassApiResponse.QueryElement e = results.get(shortestIndex);
+                            IconFactory iconFactory = IconFactory.getInstance(MainActivity.this);
+
                             MarkerOptions options = new MarkerOptions()
                                     .position(new LatLng(e.lat, e.lon))
                                     .title(e.tags.name);
                             if (isSource) {
+                                Bitmap b = getBitmap(getApplicationContext(), R.drawable.ic_mapbox_marker_icon_green);
+                                Log.d(TAG, b.toString());
+                                Icon icon = iconFactory.fromBitmap(b);
+                                options.setIcon(icon);
                                 sourceNearestStopMarker = mapboxMap.addMarker(options);
                                 animateCamera(new LatLng(e.lat, e.lon));
                             } else {
-                                //noinspection SpellCheckingInspection
-                                options.snippet("500Tshs");
                                 destinationNearestStopMarker = mapboxMap.addMarker(options);
                                 showProgressInfo(getString(R.string.calculating_shortest_route));
 //                                hideProgressInfo();

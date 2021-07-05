@@ -16,6 +16,16 @@
         android:orientation="vertical"
         android:padding="@dimen/standard_margin">
 
+        <TextView
+            android:id="@+id/journey_total_price"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="left"
+            android:layout_marginBottom="16dp"
+            android:text="Trip Price"
+            android:textAppearance="@style/TextAppearance.MaterialComponents.Headline6"
+            android:textColor="@color/indigo_a700" />
+
         <LinearLayout
             android:id="@+id/from_route_container"
             android:layout_width="match_parent"
@@ -146,16 +156,11 @@
             </LinearLayout>
         </LinearLayout>
 
+        <com.google.android.material.button.MaterialButton
+            style="@style/Widget.App.Button.Circular"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|center"
+            android:text="Start Journey" />
     </LinearLayout>
-
-    <TextView
-        android:id="@+id/journey_total_price"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|center"
-        android:layout_marginBottom="16dp"
-        android:text="Price"
-        android:textAppearance="@style/TextAppearance.MaterialComponents.Headline6"
-        android:textColor="@color/indigo_a700" />
-
 </androidx.cardview.widget.CardView>
