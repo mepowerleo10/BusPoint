@@ -3,6 +3,7 @@ package com.gorillagang.buspoint.data;
 import androidx.annotation.NonNull;
 
 import com.google.gson.annotations.SerializedName;
+import com.gorillagang.buspoint.data.navigation.ComputedDirections;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -25,6 +26,8 @@ public class Journey {
     List<Stop> routingStops;
     List<Route> routes;
     float cost;
+    @SerializedName(value = "directions")
+    ComputedDirections directions;
 
     public Journey(long id,
                    Date dateTime,
@@ -34,7 +37,8 @@ public class Journey {
                    List<Stop> notifyStops,
                    List<Stop> routingStops,
                    List<Route> routes,
-                   float cost) {
+                   float cost,
+                   ComputedDirections directions) {
         this.id = id;
         this.dateTime = dateTime;
         this.startStop = startStop;
@@ -44,6 +48,7 @@ public class Journey {
         this.routingStops = routingStops;
         this.routes = routes;
         this.cost = cost;
+        this.directions = directions;
     }
 
     public long getId() {
@@ -116,6 +121,14 @@ public class Journey {
 
     public void setCost(float cost) {
         this.cost = cost;
+    }
+
+    public ComputedDirections getDirections() {
+        return directions;
+    }
+
+    public void setDirections(ComputedDirections directions) {
+        this.directions = directions;
     }
 
     @NonNull

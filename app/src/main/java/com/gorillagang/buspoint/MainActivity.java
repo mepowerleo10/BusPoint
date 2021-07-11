@@ -196,8 +196,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private RequestQueue requestQueue;
     private FirebaseAuth mAuth;
     private FirebaseUser user;
-    //    private String serverIpAddress = "192.168.0.101:8000"; // Development Address
-    private String serverIpAddress = "mepowerleo10.pythonanywhere.com"; // Deployment Address;
+    private String serverIpAddress = "192.168.0.101:8000"; // Development Address
+//    private String serverIpAddress = "mepowerleo10.pythonanywhere.com"; // Deployment Address;
 
     @Override
     public void onMapReady(@NonNull MapboxMap mapboxMap) {
