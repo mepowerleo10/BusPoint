@@ -37,10 +37,6 @@ public class RegisterActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_register);
-        /*username = binding.registerUsername;
-        email = binding.registerEmail;
-        password = binding.registerPassword;
-        passwordConfirm = binding.registerConfirmPassword;*/
         mAuth = FirebaseAuth.getInstance();
 
         username = findViewById(R.id.register_username);
@@ -52,8 +48,6 @@ public class RegisterActivity extends AppCompatActivity {
         skipButton = findViewById(R.id.button_skip_registration);
 
         skipButton.setOnClickListener(v -> {
-            /*Intent i = new Intent(RegisterActivity.this, MainActivity.class);
-            startActivity(i);*/
             finish();
         });
 
@@ -103,6 +97,19 @@ public class RegisterActivity extends AppCompatActivity {
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
                         FirebaseUser user = mAuth.getCurrentUser();
+                        verifyEmailAddress(user, username);
+                    } else {
+                        Toast.makeText(RegisterActivity.this,
+                                R.string.failed_registration,
+                                Toast.LENGTH_LONG);
+                    }
+                });
+    }
+
+    private void verifyEmailAddress(FirebaseUser user, String username) {
+        user.sendEmailVerification()
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
                         UserProfileChangeRequest profileUpdate =
                                 new UserProfileChangeRequest.Builder()
                                         .setDisplayName(username).build();
@@ -112,7 +119,15 @@ public class RegisterActivity extends AppCompatActivity {
                                             "User: " + username + " registered!",
                                             Toast.LENGTH_LONG).show();
                                 });
-                        mAuth.signInWithEmailAndPassword(email, password);
+                        mAuth.signOut();
+                        startActivity(new Intent(RegisterActivity.this, LoginActivity.class));
+                        finish();
+                    } else {
+                        Toast.makeText(RegisterActivity.this,
+                                R.string.cant_verify_email_address,
+                                Toast.LENGTH_LONG);
+                        finish();
+                        startActivity(getIntent());
                     }
                 });
     }
@@ -124,7 +139,7 @@ public class RegisterActivity extends AppCompatActivity {
         if (!isEmailValid(email)) {
             this.email.setError("Invalid email address");
         } else if (!isPasswordValid(password)) {
-            this.password.setError("Password must have atleast 1 special character, no whitespace and 4 characters long");
+            this.password.setError("Password must have at least 1 special character, no whitespace and 4 characters long");
         } else if (!password.contains(passwordConf)) {
             this.passwordConfirm.setError("Passwords do not match");
         } else {

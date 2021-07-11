@@ -12,7 +12,7 @@
     <string name="prompt_password">Password</string>
     <string name="action_sign_in">Sign in</string>
     <string name="action_sign_in_short">Sign in</string>
-    <string name="welcome">"Welcome !"</string>
+    <string name="welcome">"Welcome "</string>
     <string name="invalid_username">Not a valid username</string>
     <string name="invalid_password">Password must be >5 characters</string>
     <string name="login_failed">"Login failed"</string>
@@ -56,4 +56,9 @@
     <string name="attachment_summary_off">Only download attachments when manually requested</string>
     <string name="problems_calculating_route">We are having problems calculating the route</string>
     <string name="board_off_here">Board Off Here</string>
+    <string name="cant_verify_email_address">Oops! Seems we can\'t verify your email address!</string>
+    <string name="failed_registration">Failed Registration</string>
+    <string name="verify">Verify</string>
+    <string name="reset">Reset</string>
+    <string name="ok">Ok</string>
 </resources>

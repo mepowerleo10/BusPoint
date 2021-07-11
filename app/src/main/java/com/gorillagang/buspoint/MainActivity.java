@@ -196,7 +196,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private RequestQueue requestQueue;
     private FirebaseAuth mAuth;
     private FirebaseUser user;
-    private String serverIpAddress = "192.168.0.101";
+    //    private String serverIpAddress = "192.168.0.101:8000"; // Development Address
+    private String serverIpAddress = "mepowerleo10.pythonanywhere.com"; // Deployment Address;
 
     @Override
     public void onMapReady(@NonNull MapboxMap mapboxMap) {
@@ -570,7 +571,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private void getRoute(@NonNull Point origin, @NonNull Point destination) {
         if (waypoints.size() < 0) return;
 
-        String url = Uri.parse("http://" + serverIpAddress + ":8000/api/get-route")
+        String url = Uri.parse("http://" + serverIpAddress + "/api/get-route")
                 .buildUpon()
                 .appendQueryParameter(
                         "start_lat",
@@ -664,19 +665,22 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     new BackgroundColorSpan(Color.parseColor(toRoute.getLastStripe())),
                     (int) Math.floor(strLen / 2), strLen, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
             );
-            ((TextView) journeyCardView.findViewById(R.id.to_route_description))
+            ((TextView) journeyCardView.findViewById(R.id.mid_price_description)).setText("500 Tshs.");
+            ((TextView) journeyCardView.findViewById(R.id.mid_route_description))
                     .setText(toRouteDescription);
+            ((TextView) journeyCardView.findViewById(R.id.to_price_description))
+                    .setText("500 Tshs.");
             ((TextView) journeyCardView.findViewById(R.id.to_stop_description))
                     .setText(journey.getFinalStop().getName());
         } else {
-            ((TextView) journeyCardView.findViewById(R.id.to_route_description))
-                    .setText(getResources().getString(R.string.board_off_here));
+            ((TextView) journeyCardView.findViewById(R.id.to_price_description))
+                    .setText("500 Tshs.");
             ((TextView) journeyCardView.findViewById(R.id.to_stop_description))
                     .setText(journey.getFinalStop().getName());
         }
 
         ((TextView) journeyCardView.findViewById(R.id.journey_total_price))
-                .setText("The Trip Price is " + journey.getCost() + " TShs.");
+                .setText("The Total Price is " + journey.getCost() + " TShs.");
 
         if (journey.getMidStop() != null) {
             Stop midStop = journey.getMidStop();
@@ -691,8 +695,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     .setVisibility(View.VISIBLE);
             journeyCardView.findViewById(R.id.midroute_arrow)
                     .setVisibility(View.VISIBLE);
-            ((TextView) journeyCardView.findViewById(R.id.mid_route_description))
-                    .setText(R.string.board_off_here);
             ((TextView) journeyCardView.findViewById(R.id.mid_stop_description))
                     .setText(midStop.getName());
             journeyCardView.findViewById(R.id.mid_route_container)
