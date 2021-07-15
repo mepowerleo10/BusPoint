@@ -6,10 +6,11 @@ import com.google.gson.annotations.SerializedName;
 
 import org.jetbrains.annotations.NotNull;
 
+import java.io.Serializable;
 import java.util.Date;
 import java.util.List;
 
-public class Journey {
+public class Journey implements Serializable {
     long id;
     @SerializedName(value = "date")
     Date dateTime;
@@ -25,7 +26,10 @@ public class Journey {
     List<Stop> routingStops;
     List<Route> routes;
     float cost;
+
+    @SerializedName(value = "from_location")
     String fromDescription;
+    @SerializedName(value = "to_location")
     String toDescription;
 
     public Journey(long id,
@@ -37,7 +41,8 @@ public class Journey {
                    List<Stop> routingStops,
                    List<Route> routes,
                    float cost,
-                   String fromDescription) {
+                   String fromDescription,
+                   String toDescription) {
         this.id = id;
         this.dateTime = dateTime;
         this.startStop = startStop;
@@ -48,6 +53,7 @@ public class Journey {
         this.routes = routes;
         this.cost = cost;
         this.fromDescription = fromDescription;
+        this.toDescription = toDescription;
     }
 
     public long getId() {
@@ -144,4 +150,5 @@ public class Journey {
     public String toString() {
         return super.toString();
     }
+
 }

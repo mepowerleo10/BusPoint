@@ -11,12 +11,12 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.gorillagang.buspoint.adapters.JourneyAdapter;
 import com.gorillagang.buspoint.data.Journey;
 
-import java.util.Collections;
 import java.util.List;
 
 public class JourneyActivity extends AppCompatActivity {
 
     List<Journey> journeyList;
+    public final String TAG = JourneyActivity.class.getSimpleName();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -28,10 +28,11 @@ public class JourneyActivity extends AppCompatActivity {
             actionBar.setDisplayHomeAsUpEnabled(true);
         }
 
+
         RecyclerView jourRecyclerView = findViewById(R.id.journey_list);
         Intent fromIntent = getIntent();
-        journeyList = Collections
-                .unmodifiableList(fromIntent.getParcelableArrayListExtra("journeyList"));
+        Bundle bundle = fromIntent.getExtras();
+        journeyList = (List<Journey>) bundle.getSerializable("journeyList");
 
         JourneyAdapter adapter = new JourneyAdapter(journeyList);
         jourRecyclerView.setAdapter(adapter);

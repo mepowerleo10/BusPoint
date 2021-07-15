@@ -2,9 +2,10 @@ package com.gorillagang.buspoint.data;
 
 import com.google.gson.annotations.SerializedName;
 
+import java.io.Serializable;
 import java.util.List;
 
-public class Route {
+public class Route implements Serializable {
     long id;
     String name;
     @SerializedName(value = "start_point")

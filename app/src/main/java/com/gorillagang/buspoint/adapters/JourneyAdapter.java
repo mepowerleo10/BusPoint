@@ -15,6 +15,8 @@ import com.gorillagang.buspoint.data.Journey;
 
 import org.jetbrains.annotations.NotNull;
 
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.List;
 
 public class JourneyAdapter extends RecyclerView.Adapter<JourneyAdapter.ViewHolder> {
@@ -41,7 +43,9 @@ public class JourneyAdapter extends RecyclerView.Adapter<JourneyAdapter.ViewHold
 
         if (journeyList.size() > 0) {
             Journey journey = journeyList.get(position);
-            holder.dateTextView.setText(journey.getDateTime().toString());
+            DateFormat dateFormat = new SimpleDateFormat("dd/mm/yyy hh:mm");
+            String date = dateFormat.format(journey.getDateTime());
+            holder.dateTextView.setText(date);
             holder.descTextView.setText(
                     String.format("%s to %s", journey.getFromDescription(), journey.getToDescription()));
             holder.costTextView.setText(String.format("%s Tshs.", journey.getCost()));

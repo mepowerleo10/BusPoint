@@ -152,4 +152,11 @@
         "For example, position the FAB to one side of stream of a cards so the FAB won’t interfere "
         "when a user tries to pick up one of cards.\n\n"
     </string>
+    <string name="stop_not_found">Stop Not Found</string>
+    <string name="network_problem">Network Problem</string>
+    <string name="enable_location_component_msg">Please enable the location component from your phone</string>
+    <string name="enable_location_component_hdr">Enable Location Component</string>
+    <string name="about_us">Buspoint is a new system for connecting and finding daladala transport more easily.\nThe app will show you the stations near you and guide you until you arrive.\nWhy wait to get lost? use Buspoint to get there!\n\n@BusPoint 2021</string>
+    <string name="about_buspoint">About BusPoint</string>
+    <string name="network_problems">Network Problems</string>
 </resources>

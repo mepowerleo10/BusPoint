@@ -42,15 +42,20 @@ import androidx.coordinatorlayout.widget.CoordinatorLayout;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.res.ResourcesCompat;
 
+import com.android.volley.AuthFailureError;
 import com.android.volley.DefaultRetryPolicy;
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
 import com.android.volley.toolbox.JsonObjectRequest;
+import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
 import com.google.android.gms.common.api.Status;
+import com.google.android.gms.tasks.Task;
 import com.google.android.libraries.places.api.Places;
 import com.google.android.libraries.places.api.model.Place;
 import com.google.android.libraries.places.api.model.RectangularBounds;
+import com.google.android.libraries.places.api.net.FindCurrentPlaceRequest;
+import com.google.android.libraries.places.api.net.FindCurrentPlaceResponse;
 import com.google.android.libraries.places.api.net.PlacesClient;
 import com.google.android.libraries.places.widget.Autocomplete;
 import com.google.android.libraries.places.widget.AutocompleteActivity;
@@ -74,8 +79,11 @@ import com.mapbox.api.directions.v5.DirectionsCriteria;
 import com.mapbox.api.directions.v5.models.DirectionsResponse;
 import com.mapbox.api.directions.v5.models.DirectionsRoute;
 import com.mapbox.api.directions.v5.models.DirectionsWaypoint;
+import com.mapbox.api.geocoding.v5.models.CarmenFeature;
 import com.mapbox.api.matrix.v1.MapboxMatrix;
 import com.mapbox.api.matrix.v1.models.MatrixResponse;
+import com.mapbox.geojson.Feature;
+import com.mapbox.geojson.LineString;
 import com.mapbox.geojson.Point;
 import com.mapbox.mapboxsdk.Mapbox;
 import com.mapbox.mapboxsdk.annotations.Icon;
@@ -100,6 +108,7 @@ import com.mapbox.mapboxsdk.style.layers.Layer;
 import com.mapbox.mapboxsdk.style.layers.LineLayer;
 import com.mapbox.mapboxsdk.style.layers.Property;
 import com.mapbox.mapboxsdk.style.layers.SymbolLayer;
+import com.mapbox.mapboxsdk.style.sources.GeoJsonOptions;
 import com.mapbox.mapboxsdk.style.sources.GeoJsonSource;
 import com.mapbox.mapboxsdk.utils.BitmapUtils;
 import com.mapbox.services.android.navigation.ui.v5.NavigationLauncher;
@@ -109,9 +118,15 @@ import com.mapbox.services.android.navigation.v5.navigation.NavigationRoute;
 
 import org.jetbrains.annotations.NotNull;
 
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -119,6 +134,7 @@ import retrofit2.Response;
 import timber.log.Timber;
 
 import static android.graphics.Color.parseColor;
+import static com.mapbox.core.constants.Constants.PRECISION_6;
 import static com.mapbox.mapboxsdk.style.expressions.Expression.color;
 import static com.mapbox.mapboxsdk.style.expressions.Expression.eq;
 import static com.mapbox.mapboxsdk.style.expressions.Expression.get;
@@ -129,6 +145,7 @@ import static com.mapbox.mapboxsdk.style.expressions.Expression.literal;
 import static com.mapbox.mapboxsdk.style.expressions.Expression.stop;
 import static com.mapbox.mapboxsdk.style.layers.Property.ICON_ANCHOR_BOTTOM;
 import static com.mapbox.mapboxsdk.style.layers.Property.NONE;
+import static com.mapbox.mapboxsdk.style.layers.Property.VISIBLE;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconAllowOverlap;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconAnchor;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconIgnorePlacement;
@@ -195,6 +212,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private RequestQueue requestQueue;
     private FirebaseAuth mAuth;
     private FirebaseUser user;
+    private String fromLoc;
+    private String toLoc;
+
     //    private String serverIpAddress = "192.168.0.101:8000"; // Development Address
     private String serverIpAddress = "buspoint.pythonanywhere.com"; // Deployment Address;
 
@@ -208,6 +228,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         .fromUri("mapbox://styles/mepowerleo10/ckpg3ymi300ue18mrll8ehbyk"),
                 style -> {
                     enableLocationComponent(style);
+                    style.addSource(
+                            new GeoJsonSource(ROUTE_LINE_SOURCE_ID, new GeoJsonOptions().withLineMetrics(true)));
                     initSources(style);
                 });
     }
@@ -303,8 +325,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         switch (item.getItemId()) {
-            case R.id.action_about:
-                return true;
             case R.id.action_login:
                 Intent i = new Intent(MainActivity.this, LoginActivity.class);
                 startActivityForResult(i, LOGIN_ACTIVITY_REQUEST_CODE);
@@ -337,7 +357,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 return true;*/
             case R.id.action_show_journeys:
                 Intent intent = new Intent(MainActivity.this, JourneyActivity.class);
-                intent.putExtra("journeyList", journeyList);
+                Bundle bundle = new Bundle();
+                bundle.putSerializable("journeyList", journeyList);
+                intent.putExtras(bundle);
                 startActivity(intent);
                 return true;
             case R.id.action_search:
@@ -381,6 +403,13 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 });
                 dialogBuilder.create().show();
                 return true;
+
+            case R.id.action_about:
+                showInformationDialog(
+                        getString(R.string.about_buspoint),
+                        getString(R.string.about_us)
+                );
+                return true;
             default:
                 return super.onOptionsItemSelected(item);
         }
@@ -389,8 +418,47 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private Location getLastKnownLocation() {
         if (locationComponent != null) {
             return locationComponent.getLastKnownLocation();
+        } else {
+            String message = getString(R.string.enable_location_component_msg);
+            String title = getString(R.string.enable_location_component_hdr);
+            showInformationDialog(title, message);
         }
         return null;
+    }
+
+    private void showInformationDialog(String title, String message) {
+        AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setMessage(message);
+        dialogBuilder.setPositiveButton("Ok", (dialog, which) -> {
+            dialog.cancel();
+        });
+        dialogBuilder.create().show();
+    }
+
+    private void showFeedbackDialog(LatLng latLng) {
+        EditText feedbackComment = new EditText(getApplicationContext());
+        int d = (int) getResources().getDimension(R.dimen.standard_margin);
+        feedbackComment.setPadding(d, d, d, d);
+        feedbackComment.setHint("Enter your comment here");
+        feedbackComment.setText("Location: ["
+                + latLng.getLatitude()
+                + ","
+                + latLng.getLongitude()
+                + "]. Name: "
+        );
+        feedbackComment.setInputType(InputType.TYPE_CLASS_TEXT);
+        AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(this)
+                .setTitle("Feedback")
+                .setView(feedbackComment)
+                .setMessage("Describe the name of the stop you want to be added");
+        dialogBuilder.setPositiveButton("Send", (dialog, which) -> {
+            sendFeedback(feedbackComment.getText().toString());
+        });
+        dialogBuilder.setNegativeButton("Cancel", (dialog, which) -> {
+            dialog.cancel();
+        });
+        dialogBuilder.create().show();
     }
 
     private void animateCamera(LatLng latLng) {
@@ -425,6 +493,48 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         startActivityForResult(intent, AUTOCOMPLETE_REQUEST_CODE);
     }
 
+    private void sendFeedback(String feedback) {
+        String uname = "anonymous";
+        if (user != null) {
+            uname = user.getUid();
+        }
+
+        String url = Uri.parse("http://" + serverIpAddress + "/api/feedback")
+                .buildUpon()
+                .build().toString();
+
+        String finalUname = uname;
+        StringRequest request = new StringRequest(
+                Request.Method.POST,
+                url,
+                response -> {
+                    String message = "Your feedback is being processed. \nThe stop will be verified" +
+                            " and added if it exists. Thank you.";
+                    showInformationDialog("Feedback Sent", message);
+                },
+                error -> {
+                    String message = "Sorry, seems we are having difficulties sending your feedback";
+                    showInformationDialog("Feedback Failed", message);
+                }
+        ) {
+            @Override
+            public Map<String, String> getHeaders() throws AuthFailureError {
+                Map<String, String> params = new HashMap<String, String>();
+                params.put("Content-Type", "application/x-www-form-urlencoded");
+                return params;
+            }
+
+            @Override
+            protected Map<String, String> getParams() throws AuthFailureError {
+                HashMap<String, String> postData = new HashMap<>();
+                postData.put("feedback", feedback);
+                postData.put("user", finalUname);
+                return postData;
+            }
+        };
+        requestQueue.add(request);
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         if (requestCode == AUTOCOMPLETE_REQUEST_CODE) {
@@ -447,7 +557,25 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     mapboxMap.removeMarker(midStopMarker);
                     midStopMarker = null;
                 }
+
+                removeGradient();
+
                 Place place = Autocomplete.getPlaceFromIntent(data);
+                toLoc = place.getName();
+
+                List<Place.Field> placeFields = Collections.singletonList(Place.Field.NAME);
+                FindCurrentPlaceRequest request = FindCurrentPlaceRequest.newInstance(placeFields);
+                Task<FindCurrentPlaceResponse> placeResponse =
+                        Places.createClient(getApplicationContext()).findCurrentPlace(request);
+                placeResponse.addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        FindCurrentPlaceResponse response = task.getResult();
+                        fromLoc = response.getPlaceLikelihoods().get(0).getPlace().getName();
+                    } else {
+                        fromLoc = "None";
+                    }
+                });
+
                 LatLng point = new LatLng(place.getLatLng().latitude, place.getLatLng().longitude);
                 LatLng source = new LatLng(getLastKnownLocation().getLatitude(),
                         getLastKnownLocation().getLongitude());
@@ -466,6 +594,16 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 Timber.tag(TAG).i(getString(R.string.user_canceled_op));
             }
             return;
+        }
+
+        if (requestCode == PLACEPICKER_ACTIVITY_CODE) {
+            if (resultCode == RESULT_OK) {
+                CarmenFeature feature = PlacePicker.getPlace(data);
+                if (feature != null) {
+                    showFeedbackDialog(new LatLng(feature.center().latitude(),
+                            feature.center().longitude()));
+                }
+            }
         }
         super.onActivityResult(requestCode, resultCode, data);
     }
@@ -525,6 +663,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         getMyLocationBtn = findViewById(R.id.button_get_my_location);
         getMyLocationBtn.setOnClickListener(v -> {
+            if (locationComponent == null) {
+                String message = getString(R.string.enable_location_component_msg);
+                String title = getString(R.string.enable_location_component_hdr);
+                showInformationDialog(title, message);
+                return;
+            }
             if (locationComponent.isLocationComponentActivated() && getLastKnownLocation() != null) {
                 animateCamera(new LatLng(
                         getLastKnownLocation().getLatitude(),
@@ -552,6 +696,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 mapboxMap.removeMarker(midStopMarker);
             startJourneyBtn.setVisibility(View.GONE);
             clearWaypointsBtn.setVisibility(View.GONE);
+            removeGradient();
             hideJorneyInfo();
         });
 
@@ -604,12 +749,15 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 .appendQueryParameter(
                         "final_lon",
                         String.valueOf(destinationNearestStopMarker.getPosition().getLongitude()))
+                .appendQueryParameter("from", fromLoc)
+                .appendQueryParameter("to", toLoc)
                 .build().toString();
 
         JsonObjectRequest request = new JsonObjectRequest(
                 Request.Method.GET,
                 url, null,
                 response -> {
+                    showProgressInfo("Drawing the route");
                     Log.i(TAG, "Request: " + url);
                     Log.i(TAG, "Response: " + String.valueOf(response));
                     Gson gson = new GsonBuilder().setDateFormat("yyyy-MM-dd HH:mm:ss").create();
@@ -623,14 +771,32 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 },
                 error -> {
                     Log.i(TAG, error.toString());
-                    progressInfoText.setText(R.string.problems_calculating_route);
-                    progressInfo.setVisibility(View.GONE);
+                    showInformationDialog(
+                            getResources().getString(R.string.problems_calculating_route));
                 }
         );
         request.setRetryPolicy(new DefaultRetryPolicy(
                 10000, 20, DefaultRetryPolicy.DEFAULT_BACKOFF_MULT
         ));
         requestQueue.add(request);
+    }
+
+    private void removeGradient() {
+        mapboxMap.getStyle(style -> {
+            GeoJsonSource lineLayerSource = style.getSourceAs(ROUTE_LINE_SOURCE_ID);
+            if (lineLayerSource != null) {
+                Log.i(TAG, "LineSource not null");
+                style.removeSource(ROUTE_LINE_SOURCE_ID);
+                Layer lineLayer = style.getLayer(ROUTE_LAYER_ID);
+
+                if (lineLayer != null) {
+                    lineLayer.setProperties(visibility(NONE));
+                }
+            } else {
+                Log.i(TAG, "LineSource is null");
+            }
+        });
+
     }
 
     private void startNavigationActivity() {
@@ -640,6 +806,102 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 .waynameChipEnabled(true)
                 .build();
         NavigationLauncher.startNavigation(MainActivity.this, options);
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
+    private void showJourneyInfo() {
+        Journey journey = journeyList.get(journeyList.size() - 1);
+        Route fromRoute = journey.getRoutes().get(0);
+
+        ((TextView) journeyCardView.findViewById(R.id.journey_from_to))
+                .setText(journey.getFromDescription() + " to " + journey.getToDescription());
+        DateFormat dateFormat = new SimpleDateFormat("EEE, dd/MM hh:mm");
+        Date date = journey.getDateTime();
+        ((TextView) journeyCardView.findViewById(R.id.journey_date_short))
+                .setText(dateFormat.format(date));
+
+        Spannable fromRouteDescription = new SpannableString(" " + fromRoute.getName() + " ");
+        int strLen = fromRouteDescription.length();
+        fromRouteDescription.setSpan(
+                new BackgroundColorSpan(Color.parseColor(fromRoute.getFirstStripe())),
+                0, (int) Math.floor(strLen / 2), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        );
+        fromRouteDescription.setSpan(
+                new BackgroundColorSpan(Color.parseColor(fromRoute.getLastStripe())),
+                (int) Math.floor(strLen / 2), strLen, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        );
+        ((TextView) journeyCardView.findViewById(R.id.from_route_description))
+                .setText(fromRouteDescription);
+        ((TextView) journeyCardView.findViewById(R.id.from_stop_description))
+                .setText(journey.getStartStop().getName());
+
+        if (journey.getRoutes().size() > 1) {
+            Route toRoute = journey.getRoutes().get(1);
+            Spannable toRouteDescription = new SpannableString(" " + toRoute.getName() + " ");
+            strLen = toRouteDescription.length();
+            toRouteDescription.setSpan(
+                    new BackgroundColorSpan(Color.parseColor(toRoute.getFirstStripe())),
+                    0, (int) Math.floor(strLen / 2), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            );
+            toRouteDescription.setSpan(
+                    new BackgroundColorSpan(Color.parseColor(toRoute.getLastStripe())),
+                    (int) Math.floor(strLen / 2), strLen, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            );
+            ((TextView) journeyCardView.findViewById(R.id.mid_price_description)).setText("500 Tshs.");
+            ((TextView) journeyCardView.findViewById(R.id.mid_route_description))
+                    .setText(toRouteDescription);
+            ((TextView) journeyCardView.findViewById(R.id.to_price_description))
+                    .setText("500 Tshs.");
+            ((TextView) journeyCardView.findViewById(R.id.to_stop_description))
+                    .setText(journey.getFinalStop().getName());
+        } else {
+            ((TextView) journeyCardView.findViewById(R.id.to_price_description))
+                    .setText("500 Tshs.");
+            ((TextView) journeyCardView.findViewById(R.id.to_stop_description))
+                    .setText(journey.getFinalStop().getName());
+        }
+
+        ((TextView) journeyCardView.findViewById(R.id.journey_total_price))
+                .setText(journey.getCost() + " TShs.");
+
+        if (journey.getMidStop() != null) {
+            Stop midStop = journey.getMidStop();
+            Bitmap b = getBitmap(getApplicationContext(), R.drawable.ic_mapbox_marker_icon_yellow);
+            MarkerOptions midStopMarkerOptions = new MarkerOptions()
+                    .setIcon(IconFactory.getInstance(getApplicationContext()).fromBitmap(b))
+                    .setTitle(midStop.getName())
+                    .setPosition(new LatLng(midStop.getLat(), midStop.getLon()));
+            midStopMarker = mapboxMap.addMarker(midStopMarkerOptions);
+
+            journeyCardView.findViewById(R.id.mid_route_container)
+                    .setVisibility(View.VISIBLE);
+            journeyCardView.findViewById(R.id.midroute_arrow)
+                    .setVisibility(View.VISIBLE);
+            ((TextView) journeyCardView.findViewById(R.id.mid_stop_description))
+                    .setText(midStop.getName());
+            journeyCardView.findViewById(R.id.mid_route_container)
+                    .setOnClickListener(v -> {
+                        animateCamera(new LatLng(midStop.getLat(), midStop.getLon()));
+                    });
+        } else {
+            journeyCardView.findViewById(R.id.mid_route_container)
+                    .setVisibility(View.GONE);
+            journeyCardView.findViewById(R.id.midroute_arrow)
+                    .setVisibility(View.GONE);
+        }
+
+        journeyCardView.findViewById(R.id.from_route_container)
+                .setOnClickListener(v -> {
+                    animateCamera(new LatLng(journey.getStartStop().getLat(),
+                            journey.getStartStop().getLon()));
+                });
+        journeyCardView.findViewById(R.id.to_route_container)
+                .setOnClickListener(v -> {
+                    animateCamera(new LatLng(journey.getFinalStop().getLat(),
+                            journey.getFinalStop().getLon()));
+                });
+
+        showBottomSheet();
     }
 
     private void calculateRoute() {
@@ -669,7 +931,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             builder.addWaypoint(points.get(i));
         }
         builder.origin(Point.fromLngLat(startStop.getLon(), startStop.getLat()))
-//                .addWaypoint(Point.fromLngLat(midStop.getLon(), midStop.getLat()))
                 .destination(Point.fromLngLat(finalStop.getLon(), finalStop.getLat()));
 
         builder.build().getRoute(new Callback<DirectionsResponse>() {
@@ -677,6 +938,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             public void onResponse(Call<DirectionsResponse> call, Response<DirectionsResponse> response) {
                 Log.d(TAG, "Response code: " + response.code());
                 if (response.body() == null) {
+                    showInformationDialog("Routing", "We are having network problems in drawing your route");
                     Log.e(TAG, "No routes found, make sure you set the right user and access token.");
                     return;
                 } else if (response.body().routes().size() < 1) {
@@ -692,6 +954,28 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     navigationMapRoute = new NavigationMapRoute(null, mapView, mapboxMap, R.style.NavigationMapRoute);
                 }
                 navigationMapRoute.addRoute(currentRoute);
+
+                removeGradient();
+
+                mapboxMap.getStyle(style -> {
+                    GeoJsonSource lineLayerSource = style.getSourceAs(ROUTE_LINE_SOURCE_ID);
+                    if (lineLayerSource != null) {
+                        Log.i(TAG, "LineSource not null");
+                        LineString lineString =
+                                LineString.fromPolyline(
+                                        currentRoute.geometry(),
+                                        PRECISION_6
+                                );
+                        lineLayerSource.setGeoJson(Feature.fromGeometry(lineString));
+                        Layer lineLayer = style.getLayer(ROUTE_LAYER_ID);
+                        if (lineLayer != null) {
+                            lineLayer.setProperties(visibility(VISIBLE));
+                        }
+                    } else {
+                        Log.i(TAG, "LineSource is null");
+                    }
+                });
+
                 LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder()
                         .include(new LatLng(startStop.getLat(), startStop.getLon()));
                 if (midStop != null) {
@@ -785,93 +1069,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         showJourneySheetBtn.setVisibility(View.GONE);
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
-    private void showJourneyInfo() {
-        Journey journey = journeyList.get(journeyList.size() - 1);
-        Route fromRoute = journey.getRoutes().get(0);
-
-        Spannable fromRouteDescription = new SpannableString(" " + fromRoute.getName() + " ");
-        int strLen = fromRouteDescription.length();
-        fromRouteDescription.setSpan(
-                new BackgroundColorSpan(Color.parseColor(fromRoute.getFirstStripe())),
-                0, (int) Math.floor(strLen / 2), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-        );
-        fromRouteDescription.setSpan(
-                new BackgroundColorSpan(Color.parseColor(fromRoute.getLastStripe())),
-                (int) Math.floor(strLen / 2), strLen, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-        );
-        ((TextView) journeyCardView.findViewById(R.id.from_route_description))
-                .setText(fromRouteDescription);
-        ((TextView) journeyCardView.findViewById(R.id.from_stop_description))
-                .setText(journey.getStartStop().getName());
-
-        if (journey.getRoutes().size() > 1) {
-            Route toRoute = journey.getRoutes().get(1);
-            Spannable toRouteDescription = new SpannableString(" " + toRoute.getName() + " ");
-            strLen = toRouteDescription.length();
-            toRouteDescription.setSpan(
-                    new BackgroundColorSpan(Color.parseColor(toRoute.getFirstStripe())),
-                    0, (int) Math.floor(strLen / 2), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-            );
-            toRouteDescription.setSpan(
-                    new BackgroundColorSpan(Color.parseColor(toRoute.getLastStripe())),
-                    (int) Math.floor(strLen / 2), strLen, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-            );
-            ((TextView) journeyCardView.findViewById(R.id.mid_price_description)).setText("500 Tshs.");
-            ((TextView) journeyCardView.findViewById(R.id.mid_route_description))
-                    .setText(toRouteDescription);
-            ((TextView) journeyCardView.findViewById(R.id.to_price_description))
-                    .setText("500 Tshs.");
-            ((TextView) journeyCardView.findViewById(R.id.to_stop_description))
-                    .setText(journey.getFinalStop().getName());
-        } else {
-            ((TextView) journeyCardView.findViewById(R.id.to_price_description))
-                    .setText("500 Tshs.");
-            ((TextView) journeyCardView.findViewById(R.id.to_stop_description))
-                    .setText(journey.getFinalStop().getName());
-        }
-
-        ((TextView) journeyCardView.findViewById(R.id.journey_total_price))
-                .setText("The Total Price is " + journey.getCost() + " TShs.");
-
-        if (journey.getMidStop() != null) {
-            Stop midStop = journey.getMidStop();
-            Bitmap b = getBitmap(getApplicationContext(), R.drawable.ic_mapbox_marker_icon_yellow);
-            MarkerOptions midStopMarkerOptions = new MarkerOptions()
-                    .setIcon(IconFactory.getInstance(getApplicationContext()).fromBitmap(b))
-                    .setTitle(midStop.getName())
-                    .setPosition(new LatLng(midStop.getLat(), midStop.getLon()));
-            midStopMarker = mapboxMap.addMarker(midStopMarkerOptions);
-
-            journeyCardView.findViewById(R.id.mid_route_container)
-                    .setVisibility(View.VISIBLE);
-            journeyCardView.findViewById(R.id.midroute_arrow)
-                    .setVisibility(View.VISIBLE);
-            ((TextView) journeyCardView.findViewById(R.id.mid_stop_description))
-                    .setText(midStop.getName());
-            journeyCardView.findViewById(R.id.mid_route_container)
-                    .setOnClickListener(v -> {
-                        animateCamera(new LatLng(midStop.getLat(), midStop.getLon()));
-                    });
-        } else {
-            journeyCardView.findViewById(R.id.mid_route_container)
-                    .setVisibility(View.GONE);
-            journeyCardView.findViewById(R.id.midroute_arrow)
-                    .setVisibility(View.GONE);
-        }
-
-        journeyCardView.findViewById(R.id.from_route_container)
-                .setOnClickListener(v -> {
-                    animateCamera(new LatLng(journey.getStartStop().getLat(),
-                            journey.getStartStop().getLon()));
-                });
-        journeyCardView.findViewById(R.id.to_route_container)
-                .setOnClickListener(v -> {
-                    animateCamera(new LatLng(journey.getFinalStop().getLat(),
-                            journey.getFinalStop().getLon()));
-                });
-
-        showBottomSheet();
+    private void showInformationDialog(String string) {
     }
 
     private void showProgressInfo(String info) {
@@ -937,7 +1135,13 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                             findShortestDistance(apiResponse.elements, point, true);
                             getStopNearDestination(destination);
                         },
-                        error -> Log.d("Error%s", String.valueOf(error))
+                        error -> {
+                            Log.d("Error%s", String.valueOf(error));
+                            String message = "Seems we are having problems finding a stop near you. " +
+                                    "\nMaybe try a different search term.";
+                            showInformationDialog(getString(R.string.stop_not_found), message);
+                            hideProgressInfo();
+                        }
                 );
         requestQueue.add(request);
     }
@@ -961,7 +1165,13 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                             OverpassApiResponse apiResponse = gson.fromJson(response.toString(), OverpassApiResponse.class);
                             findShortestDistance(apiResponse.elements, point, false);
                         },
-                        error -> Log.d("Error%s", String.valueOf(error))
+                        error -> {
+                            String message = "Seems we are having network problems finding a stop near your destination. " +
+                                    "\nPlease try searching again.";
+                            showInformationDialog(getString(R.string.network_problems), message);
+                            hideJorneyInfo();
+                            Log.d("Error%s", String.valueOf(error));
+                        }
                 );
         requestQueue.add(request);
     }
@@ -974,7 +1184,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             }
             destinationMarkerLayer = loadedStyle.getLayer(DESTINATION_MARKER_LAYER);
             if (destinationMarkerLayer != null) {
-                destinationMarkerLayer.setProperties(visibility(Property.VISIBLE));
+                destinationMarkerLayer.setProperties(visibility(VISIBLE));
                 animateCamera(new LatLng(destination.latitude(), destination.longitude()));
             }
         }
@@ -1093,6 +1303,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                                     .position(new LatLng(e.lat, e.lon))
                                     .title(e.tags.name);
                             if (isSource) {
+                                if (fromLoc.equals("None")) {
+                                    fromLoc = options.getTitle();
+                                }
                                 Bitmap b = getBitmap(getApplicationContext(), R.drawable.ic_mapbox_marker_icon_green);
                                 Log.d(TAG, b.toString());
                                 Icon icon = iconFactory.fromBitmap(b);
@@ -1108,6 +1321,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                             }
 //                            setNearestStopMarker(markerLatLng, isSource);
                         } else {
+                            String message = "Oops! We seem to be having connectivity issues.\n" +
+                                    "Please retry your search again";
+                            showInformationDialog(getString(R.string.network_problem), message);
                             Log.i(TAG, "No Matrix returned");
                         }
                     }

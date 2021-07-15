@@ -1,6 +1,8 @@
 package com.gorillagang.buspoint.data;
 
-public class Stop {
+import java.io.Serializable;
+
+public class Stop implements Serializable {
     long id;
     String name;
     double lat;
