@@ -89,7 +89,7 @@
 
             <LinearLayout
                 android:layout_width="wrap_content"
-                android:layout_height="match_parent"
+                android:layout_height="wrap_content"
                 android:orientation="vertical">
 
                 <TextView
@@ -146,7 +146,7 @@
 
             <LinearLayout
                 android:layout_width="wrap_content"
-                android:layout_height="match_parent"
+                android:layout_height="wrap_content"
                 android:orientation="vertical">
 
                 <TextView
@@ -170,10 +170,15 @@
         </LinearLayout>
 
         <com.google.android.material.button.MaterialButton
-            style="@style/Widget.App.Button.Circular"
+            android:id="@+id/button_start_journey"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom|center"
-            android:text="Start Journey" />
+            android:layout_margin="@dimen/standard_margin"
+            android:drawableLeft="@drawable/ic_baseline_navigation_24"
+            android:drawableTint="@color/white"
+            android:text="Start Journey"
+            android:textAppearance="@style/TextAppearance.MaterialComponents.Button"
+            app:cornerRadius="@dimen/standard_margin" />
     </LinearLayout>
 </androidx.cardview.widget.CardView>

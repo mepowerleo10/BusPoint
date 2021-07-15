@@ -45,23 +45,10 @@
             style="@style/Widget.App.Button.Circular.IconOnly"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="bottom|left"
+            android:layout_gravity="top|left"
             android:layout_margin="@dimen/standard_margin"
             android:visibility="gone"
             app:icon="@drawable/ic_clear" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/button_start_journey"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="bottom|center"
-            android:layout_margin="@dimen/standard_margin"
-            android:drawableLeft="@drawable/ic_baseline_navigation_24"
-            android:drawableTint="@color/white"
-            android:text="Start Journey"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Button"
-            android:visibility="gone"
-            app:cornerRadius="@dimen/standard_margin" />
 
         <androidx.coordinatorlayout.widget.CoordinatorLayout
             android:id="@+id/journey_sheet"

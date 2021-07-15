@@ -23,6 +23,8 @@ import com.gorillagang.buspoint.MainActivity;
 import com.gorillagang.buspoint.R;
 import com.gorillagang.buspoint.databinding.ActivityLoginBinding;
 
+import java.util.regex.Pattern;
+
 public class LoginActivity extends AppCompatActivity {
 
     private static final String TAG = LoginActivity.class.getSimpleName();
@@ -104,16 +106,17 @@ public class LoginActivity extends AppCompatActivity {
 
     public void loginDataChanged(String username, String password) {
         if (!isUserNameValid(username)) {
+            this.emailEditText.setError(getString(R.string.invalid_username));
             loginFormState = new LoginFormState(R.string.invalid_username, null);
         } else if (!isPasswordValid(password)) {
+            if (password.trim().length() > 0)
+                this.passwordEditText.setError(getString(R.string.invalid_password));
             loginFormState = new LoginFormState(null, R.string.invalid_password);
         } else {
             loginFormState = new LoginFormState(true);
         }
 
-        if (loginFormState.isDataValid()) {
-            loginButton.setEnabled(true);
-        }
+        loginButton.setEnabled(loginFormState.isDataValid());
     }
 
     public void login(String email, String password) {
@@ -140,21 +143,25 @@ public class LoginActivity extends AppCompatActivity {
                 });
     }
 
-    // A placeholder username validation check
     private boolean isUserNameValid(String username) {
         if (username == null) {
             return false;
         }
         if (username.contains("@")) {
             return Patterns.EMAIL_ADDRESS.matcher(username).matches();
-        } else {
-            return !username.trim().isEmpty();
         }
+
+        return false;
     }
 
-    // A placeholder password validation check
     private boolean isPasswordValid(String password) {
-        return password != null && password.trim().length() > 5;
+        final Pattern PASSWORD_PATTERN =
+                Pattern.compile("^" +
+                        "(?=.*[@#$%^&+=])" +   // at least 1 special character
+                        "(?=\\S+$)" +           // no white spaces
+                        ".{6,}" +               // at least 6 characters
+                        "$");
+        return PASSWORD_PATTERN.matcher(password).matches();
     }
 
     private void updateUiWithUser(FirebaseUser user) {

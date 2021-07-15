@@ -4,17 +4,18 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.util.Patterns;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.UserProfileChangeRequest;
-import com.gorillagang.buspoint.MainActivity;
 import com.gorillagang.buspoint.R;
 import com.gorillagang.buspoint.databinding.ActivityRegisterBinding;
 
@@ -61,8 +62,6 @@ public class RegisterActivity extends AppCompatActivity {
             signUpNewUser(username.getText().toString(),
                     email.getText().toString(),
                     password.getText().toString());
-            startActivity(new Intent(RegisterActivity.this, MainActivity.class));
-            finish();
         });
 
         TextWatcher afterTextChangeListener = new TextWatcher() {
@@ -103,6 +102,10 @@ public class RegisterActivity extends AppCompatActivity {
                                 R.string.failed_registration,
                                 Toast.LENGTH_LONG);
                     }
+                })
+                .addOnFailureListener(e -> {
+                    showFailDialog(e.getMessage());
+                    Log.i(TAG, e.getMessage());
                 });
     }
 
@@ -120,26 +123,51 @@ public class RegisterActivity extends AppCompatActivity {
                                             Toast.LENGTH_LONG).show();
                                 });
                         mAuth.signOut();
-                        startActivity(new Intent(RegisterActivity.this, LoginActivity.class));
-                        finish();
+                        showVerificationDialog();
                     } else {
                         Toast.makeText(RegisterActivity.this,
-                                R.string.cant_verify_email_address,
-                                Toast.LENGTH_LONG);
-                        finish();
-                        startActivity(getIntent());
+                                "Oops! Seems we can't verify your email",
+                                Toast.LENGTH_LONG).show();
                     }
                 });
+    }
+
+    private void showFailDialog(String message) {
+        AlertDialog.Builder dialog = new AlertDialog.Builder(this);
+        dialog
+                .setIcon(R.drawable.ic_baseline_account_circle_24)
+                .setTitle("Account Creation Failed")
+                .setMessage(message)
+                .setPositiveButton(R.string.ok, (dialog1, which) -> {
+                    dialog1.dismiss();
+                }).create().show();
+    }
+
+    private void showVerificationDialog() {
+        Log.i(TAG, "Showing verification dialog");
+        AlertDialog.Builder dialog = new AlertDialog.Builder(this);
+        dialog
+                .setIcon(R.drawable.ic_baseline_account_circle_24)
+                .setTitle("Account Created")
+                .setMessage("Your Account has been created.\n\n" +
+                        "Please check your inbox if you have received a verification email.\n\n" +
+                        "And click the link provided so that you can login with this email.")
+                .setPositiveButton(R.string.ok, (dialog1, which) -> {
+                    dialog1.dismiss();
+                    startActivity(new Intent(RegisterActivity.this, LoginActivity.class));
+                    finish();
+                }).create().show();
     }
 
     private void registerDataChanged(String username,
                                      String email,
                                      String password,
                                      String passwordConf) {
+        registerButton.setEnabled(false);
         if (!isEmailValid(email)) {
             this.email.setError("Invalid email address");
         } else if (!isPasswordValid(password)) {
-            this.password.setError("Password must have at least 1 special character, no whitespace and 4 characters long");
+            this.password.setError(getString(R.string.invalid_password));
         } else if (!password.contains(passwordConf)) {
             this.passwordConfirm.setError("Passwords do not match");
         } else {
@@ -163,12 +191,8 @@ public class RegisterActivity extends AppCompatActivity {
                 Pattern.compile("^" +
                         "(?=.*[@#$%^&+=])" +   // at least 1 special character
                         "(?=\\S+$)" +           // no white spaces
-                        ".{4,}" +               // at least 4 characters
+                        ".{6,}" +               // at least 6 characters
                         "$");
         return PASSWORD_PATTERN.matcher(password).matches();
-    }
-
-    private boolean isUsernameValid(String username) {
-        return false;
     }
 }

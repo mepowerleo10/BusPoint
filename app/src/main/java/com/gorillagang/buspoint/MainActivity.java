@@ -9,7 +9,6 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.PointF;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.VectorDrawable;
@@ -61,7 +60,6 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.JsonElement;
 import com.gorillagang.buspoint.data.Journey;
 import com.gorillagang.buspoint.data.OverpassApiResponse;
 import com.gorillagang.buspoint.data.Route;
@@ -73,13 +71,11 @@ import com.mapbox.android.core.location.LocationEngineRequest;
 import com.mapbox.android.core.permissions.PermissionsListener;
 import com.mapbox.android.core.permissions.PermissionsManager;
 import com.mapbox.api.directions.v5.DirectionsCriteria;
-import com.mapbox.api.directions.v5.MapboxDirections;
 import com.mapbox.api.directions.v5.models.DirectionsResponse;
 import com.mapbox.api.directions.v5.models.DirectionsRoute;
 import com.mapbox.api.directions.v5.models.DirectionsWaypoint;
 import com.mapbox.api.matrix.v1.MapboxMatrix;
 import com.mapbox.api.matrix.v1.models.MatrixResponse;
-import com.mapbox.geojson.Feature;
 import com.mapbox.geojson.Point;
 import com.mapbox.mapboxsdk.Mapbox;
 import com.mapbox.mapboxsdk.annotations.Icon;
@@ -98,6 +94,8 @@ import com.mapbox.mapboxsdk.maps.MapView;
 import com.mapbox.mapboxsdk.maps.MapboxMap;
 import com.mapbox.mapboxsdk.maps.OnMapReadyCallback;
 import com.mapbox.mapboxsdk.maps.Style;
+import com.mapbox.mapboxsdk.plugins.places.picker.PlacePicker;
+import com.mapbox.mapboxsdk.plugins.places.picker.model.PlacePickerOptions;
 import com.mapbox.mapboxsdk.style.layers.Layer;
 import com.mapbox.mapboxsdk.style.layers.LineLayer;
 import com.mapbox.mapboxsdk.style.layers.Property;
@@ -107,13 +105,13 @@ import com.mapbox.mapboxsdk.utils.BitmapUtils;
 import com.mapbox.services.android.navigation.ui.v5.NavigationLauncher;
 import com.mapbox.services.android.navigation.ui.v5.NavigationLauncherOptions;
 import com.mapbox.services.android.navigation.ui.v5.route.NavigationMapRoute;
+import com.mapbox.services.android.navigation.v5.navigation.NavigationRoute;
 
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -164,6 +162,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private static final int LOGIN_ACTIVITY_REQUEST_CODE = 2;
     private static final LatLng DEFAULT_REGION_BOUND_ONE = new LatLng(35.09455866, -7.07152802);
     private static final LatLng DEFAULT_REGION_BOUND_TWO = new LatLng(36.2628098, -5.40889002);
+    private static final int PLACEPICKER_ACTIVITY_CODE = 4;
     private final MainActivityLocationCallback callback = new MainActivityLocationCallback(this);
     public MapboxMap mapboxMap;
     private Toolbar toolbar;
@@ -174,7 +173,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private Layer destinationMarkerLayer;
     private Marker destinationNearestStopMarker;
     private Marker sourceNearestStopMarker;
-    private final List<Journey> journeyList = new ArrayList<>();
+    private final ArrayList<Journey> journeyList = new ArrayList<>();
     private Point origin;
     private Point destination;
     private DirectionsRoute currentRoute;
@@ -196,8 +195,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private RequestQueue requestQueue;
     private FirebaseAuth mAuth;
     private FirebaseUser user;
-    private String serverIpAddress = "192.168.0.101:8000"; // Development Address
-//    private String serverIpAddress = "mepowerleo10.pythonanywhere.com"; // Deployment Address;
+    //    private String serverIpAddress = "192.168.0.101:8000"; // Development Address
+    private String serverIpAddress = "buspoint.pythonanywhere.com"; // Deployment Address;
 
     @Override
     public void onMapReady(@NonNull MapboxMap mapboxMap) {
@@ -333,8 +332,13 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                 }
                 return true;
-            case R.id.action_settings:
+            /*case R.id.action_settings:
                 startActivity(new Intent(MainActivity.this, SettingsActivity.class));
+                return true;*/
+            case R.id.action_show_journeys:
+                Intent intent = new Intent(MainActivity.this, JourneyActivity.class);
+                intent.putExtra("journeyList", journeyList);
+                startActivity(intent);
                 return true;
             case R.id.action_search:
                 searchPlace();
@@ -349,6 +353,18 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     simulateRoute = true;
                     Toast.makeText(this, getString(R.string.route_sim_enabled), Toast.LENGTH_SHORT).show();
                 }
+                return true;
+            case R.id.action_feedback:
+                Intent placePickerActivity = new PlacePicker.IntentBuilder()
+                        .accessToken(Mapbox.getAccessToken())
+                        .placeOptions(PlacePickerOptions.builder()
+                                .statingCameraPosition(new CameraPosition.Builder()
+                                        .target(new LatLng(getLastKnownLocation().getLatitude(),
+                                                getLastKnownLocation().getLongitude()))
+                                        .zoom(16).build())
+                                .build())
+                        .build(this);
+                startActivityForResult(placePickerActivity, PLACEPICKER_ACTIVITY_CODE);
                 return true;
             case R.id.action_ip_addr:
                 AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(this);
@@ -413,6 +429,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         if (requestCode == AUTOCOMPLETE_REQUEST_CODE) {
             if (resultCode == RESULT_OK) {
+                if (navigationMapRoute != null) {
+                    navigationMapRoute.updateRouteVisibilityTo(false);
+                    navigationMapRoute.removeRoute();
+                }
                 hideJorneyInfo();
                 if (destinationNearestStopMarker != null) {
                     mapboxMap.removeMarker(destinationNearestStopMarker);
@@ -421,6 +441,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 if (sourceNearestStopMarker != null) {
                     mapboxMap.removeMarker(sourceNearestStopMarker);
                     sourceNearestStopMarker = null;
+                }
+
+                if (midStopMarker != null) {
+                    mapboxMap.removeMarker(midStopMarker);
+                    midStopMarker = null;
                 }
                 Place place = Autocomplete.getPlaceFromIntent(data);
                 LatLng point = new LatLng(place.getLatLng().latitude, place.getLatLng().longitude);
@@ -519,12 +544,15 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             }
             navigationMapRoute.updateRouteVisibilityTo(false);
             currentRoute = null;
-            if (destination != null) {
-            }
-            mapboxMap.removeMarker(destinationNearestStopMarker);
-            mapboxMap.removeMarker(sourceNearestStopMarker);
+            if (destinationNearestStopMarker != null)
+                mapboxMap.removeMarker(destinationNearestStopMarker);
+            if (sourceNearestStopMarker != null)
+                mapboxMap.removeMarker(sourceNearestStopMarker);
+            if (midStopMarker != null)
+                mapboxMap.removeMarker(midStopMarker);
             startJourneyBtn.setVisibility(View.GONE);
             clearWaypointsBtn.setVisibility(View.GONE);
+            hideJorneyInfo();
         });
 
         journeySheet = findViewById(R.id.journey_sheet);
@@ -559,15 +587,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         journeySheetBehaviour.setState(BottomSheetBehavior.STATE_HIDDEN);
     }
 
-    private void startNavigationActivity() {
-        NavigationLauncherOptions options = NavigationLauncherOptions.builder()
-                .shouldSimulateRoute(simulateRoute)
-                .directionsRoute(currentRoute)
-                .waynameChipEnabled(true)
-                .build();
-        NavigationLauncher.startNavigation(MainActivity.this, options);
-    }
-
     private void getRoute(@NonNull Point origin, @NonNull Point destination) {
         if (waypoints.size() < 0) return;
 
@@ -591,13 +610,14 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 Request.Method.GET,
                 url, null,
                 response -> {
-                    Log.i(TAG, String.valueOf(response));
+                    Log.i(TAG, "Request: " + url);
+                    Log.i(TAG, "Response: " + String.valueOf(response));
                     Gson gson = new GsonBuilder().setDateFormat("yyyy-MM-dd HH:mm:ss").create();
                     Journey journey = gson.fromJson(response.toString(), Journey.class);
                     journeyList.add(journey);
                     showJourneySheetBtn.setVisibility(View.VISIBLE);
                     showJourneyInfo();
-//                    calculateRoute();
+                    calculateRoute();
                     Log.i(TAG, "TEST Journey: " + journey.getDateTime().toString());
                     hideProgressInfo();
                 },
@@ -611,6 +631,138 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 10000, 20, DefaultRetryPolicy.DEFAULT_BACKOFF_MULT
         ));
         requestQueue.add(request);
+    }
+
+    private void startNavigationActivity() {
+        NavigationLauncherOptions options = NavigationLauncherOptions.builder()
+                .shouldSimulateRoute(simulateRoute)
+                .directionsRoute(currentRoute)
+                .waynameChipEnabled(true)
+                .build();
+        NavigationLauncher.startNavigation(MainActivity.this, options);
+    }
+
+    private void calculateRoute() {
+        Journey journey = journeyList.get(journeyList.size() - 1);
+        List<Stop> routingStops = journey.getRoutingStops();
+        Stop startStop = journey.getStartStop();
+        Stop finalStop = journey.getFinalStop();
+        Stop midStop = journey.getMidStop();
+
+        // Building the list of computed line geometry points
+        List<Point> points = new ArrayList<>();
+        for (Stop s : journey.getRoutingStops()) {
+            Point p = Point.fromLngLat(s.getLon(), s.getLat());
+            points.add(p);
+        }
+
+        showProgressInfo(getString(R.string.drawing_route));
+
+        // Map Navigation Request
+        NavigationRoute.Builder builder = NavigationRoute.builder(this)
+                .accessToken(Mapbox.getAccessToken())
+                .alternatives(false)
+                .profile(DirectionsCriteria.PROFILE_DRIVING)
+                .continueStraight(true);
+
+        for (int i = 0; i < routingStops.size(); i++) {
+            builder.addWaypoint(points.get(i));
+        }
+        builder.origin(Point.fromLngLat(startStop.getLon(), startStop.getLat()))
+//                .addWaypoint(Point.fromLngLat(midStop.getLon(), midStop.getLat()))
+                .destination(Point.fromLngLat(finalStop.getLon(), finalStop.getLat()));
+
+        builder.build().getRoute(new Callback<DirectionsResponse>() {
+            @Override
+            public void onResponse(Call<DirectionsResponse> call, Response<DirectionsResponse> response) {
+                Log.d(TAG, "Response code: " + response.code());
+                if (response.body() == null) {
+                    Log.e(TAG, "No routes found, make sure you set the right user and access token.");
+                    return;
+                } else if (response.body().routes().size() < 1) {
+                    Log.e(TAG, "No routes found");
+                    return;
+                }
+
+                currentRoute = response.body().routes().get(0);
+                // Draw the route on the map
+                if (navigationMapRoute != null) {
+                    navigationMapRoute.removeRoute();
+                } else {
+                    navigationMapRoute = new NavigationMapRoute(null, mapView, mapboxMap, R.style.NavigationMapRoute);
+                }
+                navigationMapRoute.addRoute(currentRoute);
+                LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder()
+                        .include(new LatLng(startStop.getLat(), startStop.getLon()));
+                if (midStop != null) {
+                    boundsBuilder.include(new LatLng(midStop.getLat(), midStop.getLon()));
+                }
+                boundsBuilder.include(new LatLng(finalStop.getLat(), finalStop.getLon()));
+                animateCameraToBounds(boundsBuilder.build());
+
+                clearWaypointsBtn.setVisibility(View.VISIBLE);
+                startJourneyBtn.setVisibility(View.VISIBLE);
+            }
+
+            @Override
+            public void onFailure(Call<DirectionsResponse> call, Throwable t) {
+                Log.e(TAG, "Error: " + t.getMessage());
+            }
+        });
+
+        /*MapboxMapMatching matchingClient = MapboxMapMatching.builder()
+                .accessToken(Mapbox.getAccessToken())
+                .profile(DirectionsCriteria.PROFILE_DRIVING)
+                .coordinates(points)
+                .annotations(DirectionsCriteria.ANNOTATION_DURATION, DirectionsCriteria.ANNOTATION_DISTANCE)
+                .roundaboutExits(true)
+                .overview(DirectionsCriteria.OVERVIEW_FALSE)
+                .steps(true)
+                .build();
+        matchingClient.enqueueCall(new Callback<MapMatchingResponse>() {
+            @Override
+            public void onResponse(Call<MapMatchingResponse> call, Response<MapMatchingResponse> response) {
+                if (response.isSuccessful()){
+                    if (response.body() == null) {
+                        Log.e(TAG, "No routes found, make sure you set the right user and access token.");
+                        return;
+                    } else if (response.body().matchings().size() < 1) {
+                        Log.e(TAG, "No routes found");
+                        return;
+                    }
+
+                    showProgressInfo("Line Matching for Drawing route successful");
+                    Log.i(TAG, "Found Matching: " + response.message());
+
+                    currentRoute = response.body().matchings().get(0).toDirectionRoute();
+                    // Draw the route on the map
+                    if (navigationMapRoute != null) {
+                        navigationMapRoute.removeRoute();
+                    } else {
+                        navigationMapRoute = new NavigationMapRoute(null, mapView, mapboxMap, R.style.NavigationMapRoute);
+                    }
+                    navigationMapRoute.addRoute(currentRoute);
+                    LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder()
+                            .include(new LatLng(startStop.getLat(), startStop.getLon()));
+                    if (midStop != null) {
+                        boundsBuilder.include(new LatLng(midStop.getLat(), midStop.getLon()));
+                    }
+                    boundsBuilder.include(new LatLng(finalStop.getLat(), finalStop.getLon()));
+                    animateCameraToBounds(boundsBuilder.build());
+
+                    clearWaypointsBtn.setVisibility(View.VISIBLE);
+                    startJourneyBtn.setVisibility(View.VISIBLE);
+                } else {
+                    Log.i(TAG, "Failed to get matchings: " + response.message());
+                }
+                hideProgressInfo();
+            }
+
+            @Override
+            public void onFailure(Call<MapMatchingResponse> call, Throwable t) {
+                Log.i(TAG, t.getLocalizedMessage());
+            }
+        });*/
     }
 
     private void showBottomSheet() {
@@ -722,50 +874,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         showBottomSheet();
     }
 
-    private void calculateRoute() {
-        MapboxDirections.Builder builder = MapboxDirections.builder();
-        List<Stop> busStops = journeyList.get(journeyList.size() - 1).getRoutingStops();
-        List<Point> midPoints = new ArrayList<>();
-        for (Stop s : busStops) {
-            midPoints.add(Point.fromLngLat(s.getLon(), s.getLat()));
-        }
-        builder.addWaypoint(origin);
-        for (int i = 0; i < midPoints.size(); i++) {
-            builder.addWaypoint(midPoints.get(i));
-        }
-        builder.addWaypoint(destination);
-        builder.profile(DirectionsCriteria.PROFILE_DRIVING);
-        builder.profile(DirectionsCriteria.OVERVIEW_FULL);
-        builder.accessToken(Mapbox.getAccessToken());
-        builder.build().enqueueCall(new Callback<DirectionsResponse>() {
-            @Override
-            public void onResponse(Call<DirectionsResponse> call, Response<DirectionsResponse> response) {
-                if (response.body() == null) {
-                    Log.e(TAG, "No routes found, make sure you set the right user and access token.");
-                    Log.e(TAG, response.message());
-                    return;
-                } else if (response.body().routes().size() < 1) {
-                    Log.e(TAG, "No routes found");
-                    return;
-                } else {
-                    currentRoute = response.body().routes().get(0);
-                    navigationMapRoute.addRoute(currentRoute);
-                    LatLngBounds bounds = new LatLngBounds.Builder()
-                            .include(new LatLng(origin.latitude(), origin.longitude()))
-                            .include(new LatLng(destination.latitude(), destination.longitude()))
-                            .build();
-                    animateCameraToBounds(bounds);
-                }
-
-// Retrieve the directions route from the API response
-                currentRoute = response.body().routes().get(0);
-            }
-
-            @Override
-            public void onFailure(Call<DirectionsResponse> call, Throwable t) {
-                Log.e(TAG, "Error: " + t.getMessage());
-            }
-        });
+    private void showProgressInfo(String info) {
+        progressInfo.setVisibility(View.VISIBLE);
+        progressInfoText.setText(info);
     }
 
     private void animateCameraToBounds(LatLngBounds bounds) {
@@ -895,11 +1006,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         error -> Log.d("Error%s", String.valueOf(error))
                 );
         requestQueue.add(request);
-    }
-
-    private void showProgressInfo(String message) {
-        progressInfoText.setText(message);
-        progressInfo.setVisibility(View.VISIBLE);
     }
 
     @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
@@ -1076,16 +1182,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     @Override
     public boolean onMapClick(@NonNull @NotNull LatLng point) {
-        final PointF pixel = mapboxMap.getProjection().toScreenLocation(point);
-        List<Feature> features = mapboxMap.queryRenderedFeatures(pixel);
-        if (features.size() > 0) {
-            Feature feature = features.get(0);
-            if (feature.properties() != null) {
-                for (Map.Entry<String, JsonElement> entry : feature.properties().entrySet()) {
-                    Timber.tag(TAG).i(String.format("%s = %s", entry.getKey(), entry.getValue()));
-                }
-            }
-        }
+        Log.i(TAG, "Clicked: " + point);
         return false;
     }
 
