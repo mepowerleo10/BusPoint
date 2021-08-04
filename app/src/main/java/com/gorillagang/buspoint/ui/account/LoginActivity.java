@@ -14,6 +14,7 @@ import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import androidx.appcompat.app.ActionBar;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.firebase.auth.FirebaseAuth;
@@ -22,7 +23,7 @@ import com.gorillagang.buspoint.MainActivity;
 import com.gorillagang.buspoint.R;
 import com.gorillagang.buspoint.databinding.ActivityLoginBinding;
 
-import timber.log.Timber;
+import java.util.regex.Pattern;
 
 public class LoginActivity extends AppCompatActivity {
 
@@ -105,16 +106,17 @@ public class LoginActivity extends AppCompatActivity {
 
     public void loginDataChanged(String username, String password) {
         if (!isUserNameValid(username)) {
+            this.emailEditText.setError(getString(R.string.invalid_username));
             loginFormState = new LoginFormState(R.string.invalid_username, null);
         } else if (!isPasswordValid(password)) {
+            if (password.trim().length() > 0)
+                this.passwordEditText.setError(getString(R.string.invalid_password));
             loginFormState = new LoginFormState(null, R.string.invalid_password);
         } else {
             loginFormState = new LoginFormState(true);
         }
 
-        if (loginFormState.isDataValid()) {
-            loginButton.setEnabled(true);
-        }
+        loginButton.setEnabled(loginFormState.isDataValid());
     }
 
     public void login(String email, String password) {
@@ -125,40 +127,46 @@ public class LoginActivity extends AppCompatActivity {
         mAuth.signInWithEmailAndPassword(email, password)
                 .addOnCompleteListener(task -> {
                     loadingProgressBar.setVisibility(View.GONE);
-
-                    //Complete and destroy login activity once successful
-                    finish();
                     if (task.isSuccessful()) {
                         user = mAuth.getCurrentUser();
-                        updateUiWithUser(user);
-                        Timber.tag(TAG).i("login:success %s", user.getEmail());
+                        if (user.isEmailVerified()) {
+                            //Complete and destroy login activity if the email is validated
+                            finish();
+                            updateUiWithUser(user);
+                        } else {
+                            showLoginFailed("Please verify this email address first.\nResend Verification email to this user?", true);
+                        }
+
                     } else {
-                        Timber.tag(TAG).i("login:failed");
-                        showLoginFailed("Login Failed");
+                        showLoginFailed("Credentials provided are incorrect.", false);
                     }
                 });
     }
 
-    // A placeholder username validation check
     private boolean isUserNameValid(String username) {
         if (username == null) {
             return false;
         }
         if (username.contains("@")) {
             return Patterns.EMAIL_ADDRESS.matcher(username).matches();
-        } else {
-            return !username.trim().isEmpty();
         }
+
+        return false;
     }
 
-    // A placeholder password validation check
     private boolean isPasswordValid(String password) {
-        return password != null && password.trim().length() > 5;
+        final Pattern PASSWORD_PATTERN =
+                Pattern.compile("^" +
+                        "(?=.*[@#$%^&+=])" +   // at least 1 special character
+                        "(?=\\S+$)" +           // no white spaces
+                        ".{6,}" +               // at least 6 characters
+                        "$");
+        return PASSWORD_PATTERN.matcher(password).matches();
     }
 
     private void updateUiWithUser(FirebaseUser user) {
-        String welcome = getString(R.string.welcome) + user.getDisplayName();
-        // TODO : initiate successful logged in experience
+        // Initiating a successful login experience
+        String welcome = getString(R.string.welcome) + user.getDisplayName() + "!";
         Toast.makeText(getApplicationContext(), welcome, Toast.LENGTH_LONG).show();
         Intent i = new Intent(this, MainActivity.class);
         setResult(Activity.RESULT_OK);
@@ -166,8 +174,43 @@ public class LoginActivity extends AppCompatActivity {
         finish();
     }
 
-    private void showLoginFailed(String errorString) {
-        Toast.makeText(getApplicationContext(), errorString, Toast.LENGTH_SHORT).show();
+    private void showLoginFailed(String errorString, boolean verify) {
+        AlertDialog.Builder dialog = new AlertDialog.Builder(this)
+                .setIcon(R.drawable.ic_baseline_account_circle_24);
+        if (verify) {
+            dialog.setTitle("Failed Email Verification")
+                    .setMessage(errorString)
+                    .setPositiveButton(R.string.verify, (dialog1, which) -> {
+                        user.sendEmailVerification();
+                    })
+                    .setNegativeButton(getString(R.string.cancel), (dialog1, which) -> {
+                    });
+        } else {
+            dialog.setTitle("Account Credentials")
+                    .setMessage(errorString)
+                    .setPositiveButton(R.string.ok, (dialog1, which) -> {
+                    })
+                    .setNegativeButton(getString(R.string.cancel), (dialog1, which) -> {
+                    });
+            findViewById(R.id.container_forgot_password).setVisibility(View.VISIBLE);
+            Button forgotPasswordBtn = findViewById(R.id.button_reset_password);
+            forgotPasswordBtn.setOnClickListener(v -> {
+                mAuth.sendPasswordResetEmail(emailEditText.getText().toString())
+                        .addOnCompleteListener(task -> {
+                            if (task.isSuccessful()) {
+                                Toast.makeText(LoginActivity.this,
+                                        "Password Reset successful, an email has been sent to this email address.",
+                                        Toast.LENGTH_LONG).show();
+                                findViewById(R.id.container_forgot_password).setVisibility(View.GONE);
+                            } else {
+                                Toast.makeText(LoginActivity.this,
+                                        "Password Reset failed, the provided email might be incorrect",
+                                        Toast.LENGTH_LONG).show();
+                            }
+                        });
+            });
+        }
+        dialog.create().show();
     }
 
 }
