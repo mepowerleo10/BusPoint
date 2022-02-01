@@ -12,5 +12,12 @@ The application has several components interacting to provide reliable services:
 - Run and Tested on Android 8
 - Android Studio on Linux
 
+## Running
+- Open the project in Android Studio, the dependencies will be fetched automatically by gradle.
+- Run the appliction
+
 ## Limitations
-The application was made with the city of Dodoma as the case study. Searching for areas out of bound might yield unresonable and unexpected results.
+- The application was made with the city of Dodoma as the case study
+- Searching for areas out of bound might yield unresonable and unexpected results
+- Endpoints to the server might be unreachable
+
