@@ -6,6 +6,7 @@ The application has several components interacting to provide reliable services:
 - MapBox API provides Tiling, Rendering, Matrix and Navigation Services
 - Google Places API provides location search services (I hope to build a custom search service in the future)
 - OSM Overpass API to search for nearest nodes on the map
+- Firebase Authentication handles user accounts and emailing services
 
 ## Development Environment
 - Run and Tested on Android 8
