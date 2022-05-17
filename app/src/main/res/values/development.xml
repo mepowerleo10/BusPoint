@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="mapbox_access_token">pk.eyJ1IjoibWVwb3dlcmxlbzEwIiwiYSI6ImNrb2NmdzZnbDFiNjAycnFtdGlvdGJvNnEifQ.Go_lV8ke11qO0WBLh2fRrQ</string>
-    <string name="places_api_key">AIzaSyD6naYn101iS-qFvyHTzCagbS473URzShg</string>
+<!--    <string name="places_api_key">AIzaSyD6naYn101iS-qFvyHTzCagbS473URzShg</string>-->
+    <string name="places_api_key">AIzaSyDS4DqKkUQD6GZUGToOgfdXx_9xESYReBA</string>
 </resources>

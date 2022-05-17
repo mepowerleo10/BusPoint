@@ -1,10 +1,12 @@
 package com.gorillagang.buspoint;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
@@ -39,6 +41,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.cardview.widget.CardView;
 import androidx.coordinatorlayout.widget.CoordinatorLayout;
+import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.res.ResourcesCompat;
 
@@ -180,6 +183,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private static final LatLng DEFAULT_REGION_BOUND_ONE = new LatLng(35.09455866, -7.07152802);
     private static final LatLng DEFAULT_REGION_BOUND_TWO = new LatLng(36.2628098, -5.40889002);
     private static final int PLACEPICKER_ACTIVITY_CODE = 4;
+    public static final String HTTPS_OVERPASS_API_DE_API_INTERPRETER = "https://overpass-api.de/api/interpreter";
     private final MainActivityLocationCallback callback = new MainActivityLocationCallback(this);
     public MapboxMap mapboxMap;
     private Toolbar toolbar;
@@ -215,7 +219,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private String fromLoc;
     private String toLoc;
 
-    //    private String serverIpAddress = "192.168.0.101:8000"; // Development Address
+//    private String serverIpAddress = "192.168.0.101:8000"; // Development Address
     private String serverIpAddress = "buspoint.pythonanywhere.com"; // Deployment Address;
 
     @Override
@@ -486,10 +490,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 )
         );
 
-        Intent intent = new Autocomplete.IntentBuilder(AutocompleteActivityMode.FULLSCREEN, fields)
+        Intent intent = new Autocomplete.IntentBuilder(AutocompleteActivityMode.OVERLAY, fields)
                 .setCountry("TZ")
                 .setLocationBias(bounds)
                 .build(this);
+        Timber.tag("SEARCH").v(intent.toString());
         startActivityForResult(intent, AUTOCOMPLETE_REQUEST_CODE);
     }
 
@@ -565,6 +570,16 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                 List<Place.Field> placeFields = Collections.singletonList(Place.Field.NAME);
                 FindCurrentPlaceRequest request = FindCurrentPlaceRequest.newInstance(placeFields);
+                if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                    // TODO: Consider calling
+                    //    ActivityCompat#requestPermissions
+                    // here to request the missing permissions, and then overriding
+                    //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                    //                                          int[] grantResults)
+                    // to handle the case where the user grants the permission. See the documentation
+                    // for ActivityCompat#requestPermissions for more details.
+                    return;
+                }
                 Task<FindCurrentPlaceResponse> placeResponse =
                         Places.createClient(getApplicationContext()).findCurrentPlace(request);
                 placeResponse.addOnCompleteListener(task -> {
@@ -589,9 +604,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
             } else if (resultCode == AutocompleteActivity.RESULT_ERROR) {
                 Status status = Autocomplete.getStatusFromIntent(data);
-                Timber.tag(TAG).i(status.getStatusMessage());
+                Log.i("SEARCH", status.getStatusMessage());
             } else if (resultCode == RESULT_CANCELED) {
-                Timber.tag(TAG).i(getString(R.string.user_canceled_op));
+                Log.i("SEARCH", getString(R.string.user_canceled_op));
+            } else {
+                Status status = Autocomplete.getStatusFromIntent(data);
+                Log.i("SEARCH", status.getStatusMessage());
             }
             return;
         }
@@ -835,6 +853,25 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         ((TextView) journeyCardView.findViewById(R.id.from_stop_description))
                 .setText(journey.getStartStop().getName());
 
+        int journeyOnePrice = 0;
+        int journeyTwoPrice = 0;
+        if (journey.getCost() <= 600) {
+            journeyOnePrice = (int)journey.getCost();
+        } else if (journey.getCost() == 800 || journey.getCost() == 1_000) {
+            journeyOnePrice = (int) journey.getCost() / 2;
+            journeyTwoPrice = journeyOnePrice;
+        } else if (journey.getCost() == 900) {
+            journeyOnePrice = 500;
+            journeyTwoPrice = 400;
+        } else if (journey.getCost() == 700){
+            journeyOnePrice = 400;
+            journeyTwoPrice = 300;
+        } else {
+            journeyOnePrice = (int) Math.ceil(0.6 * journey.getCost());
+            journeyTwoPrice = (int) Math.floor(0.4 * journey.getCost());
+        }
+
+
         if (journey.getRoutes().size() > 1) {
             Route toRoute = journey.getRoutes().get(1);
             Spannable toRouteDescription = new SpannableString(" " + toRoute.getName() + " ");
@@ -847,16 +884,16 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     new BackgroundColorSpan(Color.parseColor(toRoute.getLastStripe())),
                     (int) Math.floor(strLen / 2), strLen, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
             );
-            ((TextView) journeyCardView.findViewById(R.id.mid_price_description)).setText("500 Tshs.");
+            ((TextView) journeyCardView.findViewById(R.id.mid_price_description)).setText(journeyOnePrice + " Tshs.");
             ((TextView) journeyCardView.findViewById(R.id.mid_route_description))
                     .setText(toRouteDescription);
             ((TextView) journeyCardView.findViewById(R.id.to_price_description))
-                    .setText("500 Tshs.");
+                    .setText(journeyTwoPrice + " Tshs.");
             ((TextView) journeyCardView.findViewById(R.id.to_stop_description))
                     .setText(journey.getFinalStop().getName());
         } else {
             ((TextView) journeyCardView.findViewById(R.id.to_price_description))
-                    .setText("500 Tshs.");
+                    .setText(journeyOnePrice + " Tshs.");
             ((TextView) journeyCardView.findViewById(R.id.to_stop_description))
                     .setText(journey.getFinalStop().getName());
         }
@@ -1116,7 +1153,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     private void getStopNearMe(LatLng point, LatLng destination) {
-        @SuppressLint("DefaultLocale") String uri = Uri.parse("https://overpass-api.de/api/interpreter")
+        @SuppressLint("DefaultLocale") String uri = Uri.parse(HTTPS_OVERPASS_API_DE_API_INTERPRETER)
                 .buildUpon()
                 .appendQueryParameter("data",
                         String.format(getString(R.string.overpass_api_query), 1100,
@@ -1147,7 +1184,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     private void getStopNearDestination(LatLng point) {
-        @SuppressLint("DefaultLocale") String uri = Uri.parse("https://overpass-api.de/api/interpreter")
+        @SuppressLint("DefaultLocale") String uri = Uri.parse(HTTPS_OVERPASS_API_DE_API_INTERPRETER)
                 .buildUpon()
                 .appendQueryParameter("data",
                         String.format(getString(R.string.overpass_api_query), 1100,
@@ -1191,7 +1228,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     private void getNearestStop(@NonNull LatLng point, boolean isSource) {
-        @SuppressLint("DefaultLocale") String uri = Uri.parse("https://overpass-api.de/api/interpreter")
+        @SuppressLint("DefaultLocale") String uri = Uri.parse(HTTPS_OVERPASS_API_DE_API_INTERPRETER)
                 .buildUpon()
                 .appendQueryParameter("data",
                         String.format(getString(R.string.overpass_api_query), 1100,
@@ -1303,7 +1340,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                                     .position(new LatLng(e.lat, e.lon))
                                     .title(e.tags.name);
                             if (isSource) {
-                                if (fromLoc.equals("None")) {
+                                if (fromLoc != null && fromLoc.equals("None")) {
                                     fromLoc = options.getTitle();
                                 }
                                 Bitmap b = getBitmap(getApplicationContext(), R.drawable.ic_mapbox_marker_icon_green);
@@ -1339,7 +1376,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     private void setNearestStopMarker(@NonNull LatLng latLng, boolean isSource) {
         @SuppressLint("DefaultLocale") String uri =
-                Uri.parse("https://overpass-api.de/api/interpreter")
+                Uri.parse(HTTPS_OVERPASS_API_DE_API_INTERPRETER)
                         .buildUpon()
                         .appendQueryParameter("data",
                                 String.format(getString(R.string.overpass_api_query), 10,

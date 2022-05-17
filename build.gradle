@@ -28,7 +28,8 @@ allprojects {
                 // This should always be `mapbox` (not your username).
                 username = 'mapbox'
                 // Use the secret token you stored in gradle.properties as the password
-                password = project.properties['MAPBOX_DOWNLOADS_TOKEN'] ?: ""
+//                password = project.properties['MAPBOX_DOWNLOADS_TOKEN'] ?: ""
+                password = "sk.eyJ1IjoibWVwb3dlcmxlbzEwIiwiYSI6ImNsMzE5Nm83ZzB1ZXkzanBzbnZkMmJuc2kifQ.kH0Ny6qoPSKNMBIVJGQEfg"
             }
         }
         maven { url 'https://mapbox.bintray.com/mapbox' }
